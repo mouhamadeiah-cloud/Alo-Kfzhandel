@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Management - Operationen</title>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* === system-style.css - modern === */
+        :root {
+            --primary-dark: #1a1a1a;
+            --accent-green: #2ecc71;
+            --accent-blue: #3498db;
+            --bg-light: #f4f7f6;
+            --text-main: #2d3436;
+            --danger-red: #e74c3c;
+            --white: #ffffff;
+            --shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --border-radius: 12px;
+            --probefahrt-orange: #f39c12;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { margin: 0; background: var(--bg-light); color: var(--text-main); }
+
+        /* Navbar - einheitlich mit anderen Seiten */
+        #navbar {
+            background: var(--primary-dark);
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+        .brand { 
+            font-weight: bold; 
+            color: var(--accent-green); 
+            margin-right: 30px; 
+            letter-spacing: 1px;
+        }
+        .nav-links { display: flex; list-style: none; margin: 0; padding: 0; }
+        .nav-item { 
+            margin: 0 15px; 
+            cursor: pointer; 
+            color: #ccc; 
+            font-size: 14px; 
+            transition: 0.3s; 
+            text-decoration: none; 
+        }
+        .nav-item:hover, .nav-item.active { color: var(--accent-green); }
+
+        /* Operations Layout */
+        .ops-container { display: flex; height: calc(100vh - 50px); margin-top: 50px; }
+        .ops-sidebar {
+            width: 200px;
+            background: #ffffff;
+            padding: 20px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-right: 1px solid #ddd;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+        }
+        .btn-ops {
+            border: none; padding: 12px; border-radius: 8px; color: white;
+            font-weight: bold; cursor: pointer; text-align: center; font-size: 12px; transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .btn-ops:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn-angebot { background: #9b59b6; }
+        .btn-rechnung { background: #27ae60; }
+        .btn-eu { background: #2980b9; }
+        .btn-export { background: #e67e22; }
+        .btn-vertrag { background: #34495e; }
+        .btn-probefahrt { background: var(--probefahrt-orange); }
+
+        .ops-main { flex: 1; padding: 20px; overflow-y: auto; }
+
+        .data-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .entry-card { background: white; padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow); border-top: 3px solid #eee; }
+        .entry-card h3 { margin-top: 0; font-size: 14px; color: var(--accent-blue); text-transform: uppercase; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; }
+
+        .form-group { margin-bottom: 12px; position: relative; }
+        .form-group label { display: block; font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #7f8c8d; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 10px; border: 1px solid #dfe6e9; border-radius: 8px; font-size: 13px;
+            transition: 0.2s;
+        }
+        .form-group input:focus { border-color: var(--accent-green); outline: none; background: #f9fffb; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1); }
+
+        .search-results {
+            position: absolute; top: 100%; left: 0; right: 0; background: white; 
+            border: 1px solid #ddd; z-index: 1000; border-radius: 0 0 8px 8px; max-height: 150px; overflow-y: auto;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        }
+        .res-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; font-size: 12px; }
+        .res-item:hover { background: #e8f5e9; }
+
+        /* Overlay für A4 Dokument */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center;
+            overflow-y: auto; padding: 40px 0; z-index: 9999;
+        }
+        .a4-doc {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            color: #000;
+            position: relative;
+            font-size: 12pt;
+            line-height: 1.4;
+            border-radius: 3px;
+            display: flex;
+            flex-direction: column;
+        }
+        .doc-content {
+            flex: 1 0 auto;
+        }
+        .doc-footer {
+            flex-shrink: 0;
+            margin-top: 10mm;
+            display: flex;
+            justify-content: space-between;
+            border-top: 2px solid #333;
+            padding-top: 3mm;
+            font-size: 9pt;
+            background: #f2f2f2;
+            border-radius: 4px 4px 0 0;
+            padding: 3mm 4mm;
+        }
+
+        /* Druck-Styling */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+
+        @media print {
+            body * { visibility: hidden; }
+            .overlay, .overlay * { visibility: visible; }
+            .overlay {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: auto;
+                background: white;
+                padding: 0;
+                margin: 0;
+                display: block !important;
+                overflow: visible;
+            }
+            .a4-doc {
+                width: 100%;
+                height: auto;
+                padding: 20mm;
+                margin: 0;
+                box-shadow: none;
+                background: white;
+                page-break-after: avoid;
+                page-break-inside: avoid;
+            }
+            .a4-doc, .a4-doc * {
+                background: white !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+                color: black !important;
+            }
+            .no-print, .doc-controls, .text-dropdown, .text-dropdown * {
+                display: none !important;
+            }
+            .vehicle-description, .doc-header, .doc-customer, .doc-title, .doc-footer {
+                page-break-inside: avoid;
+            }
+        }
+
+        /* A4-spezifische Styles */
+        .doc-header { display: flex; justify-content: space-between; margin-bottom: 3mm; align-items: center; }
+        .doc-logo { width: 50mm; height: 20mm; background: #f8f8f8; text-align: center; line-height: 20mm; color: #999; font-size: 10pt; border-radius: 4px; overflow: hidden; }
+        .doc-company { text-align: right; font-size: 10pt; background: #f9f9f9; padding: 2mm 4mm; border-radius: 4px; }
+
+        .doc-absender {
+            font-size: 8pt;
+            margin-bottom: 1mm;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 1mm;
+            color: #555;
+            width: 100%;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-color: #aaa;
+        }
+        .doc-customer {
+            margin-bottom: 1mm;
+            font-size: 10pt;
+            background: #f5f5f5;
+            padding: 2mm;
+            border-radius: 4px;
+            width: 100%;
+        }
+        .doc-customer p { margin: 0.5mm 0; }
+
+        .doc-title {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 3mm 0 1mm;
+            color: var(--primary-dark);
+            border-left: 5px solid var(--accent-green);
+            padding-left: 3mm;
+        }
+        /* Zeile für Datum und Lieferdatum */
+        .doc-date-row {
+            display: flex;
+            gap: 10mm;
+            margin-bottom: 3mm;
+            font-size: 10pt;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .doc-date-row input, .doc-date-row select {
+            border: 1px solid #ccc;
+            background: #fff;
+            font-size: 10pt;
+            padding: 1mm;
+            border-radius: 2px;
+        }
+        .doc-date-row input[type="time"] {
+            width: 20mm;
+        }
+
+        .text-section {
+            position: relative;
+            margin: 2mm 0;
+            padding: 1mm;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+        .garantie-section {
+            min-height: 3.5em;
+            width: 100%;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 2mm;
+        }
+        .text-content {
+            flex: 1;
+        }
+        .text-dropdown {
+            position: absolute;
+            right: 0;
+            top: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 2px;
+            z-index: 10;
+        }
+        .text-dropdown select {
+            border: none;
+            padding: 2mm;
+            font-size: 9pt;
+            background: white;
+        }
+
+        .vehicle-description { 
+            margin: 2mm 0; 
+            background: #fafafa; 
+            padding: 2mm; 
+            border-radius: 4px; 
+            border-left: 3px solid var(--accent-blue);
+        }
+        .vehicle-desc-left { 
+            font-size: 11pt; 
+            line-height: 1.4; 
+        }
+        .vehicle-desc-left strong {
+            font-size: 12pt;
+        }
+        .vehicle-desc-right { 
+            text-align: right; 
+            margin-top: 1mm;
+        }
+        .price-area { 
+            font-weight: bold; 
+            font-size: 14pt; 
+            color: var(--accent-green); 
+        }
+
+        .signature-area {
+            margin-top: 10mm;
+            display: flex;
+            justify-content: space-between;
+        }
+        .signature-box {
+            width: 45%;
+        }
+        .signature-line {
+            border-bottom: 1px solid #000;
+            margin-top: 2mm;
+            margin-bottom: 1mm;
+            height: 10mm;
+        }
+
+        .footer-left, .footer-right {
+            display: flex;
+            flex-direction: column;
+        }
+        .footer-left i, .footer-right i {
+            color: var(--accent-blue);
+            margin-right: 2mm;
+            width: 5mm;
+        }
+
+        .doc-controls {
+            position: sticky; top: 20px; background: white; padding: 10px; border-radius: 8px;
+            display: flex; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); margin-bottom: 20px;
+            z-index: 10000;
+        }
+        .doc-btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .doc-btn.print { background: #3498db; color: white; }
+        .doc-btn.pdf { background: #e67e22; color: white; }
+        .doc-btn.save { background: #27ae60; color: white; }
+
+        .vehicle-list { margin-top: 20px; }
+        .vehicle-entry {
+            background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .vehicle-entry input { width: 120px; padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        .btn-add-vehicle { background: var(--accent-green); color: white; border: none; padding: 8px 12px; border-radius: 20px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .small-note { font-size: 11px; color: #777; }
+
+        /* Custom Prompt Modal */
+        .custom-prompt {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center;
+            z-index: 20000;
+        }
+        .prompt-box {
+            background: white; padding: 30px; border-radius: 12px; text-align: center; max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .prompt-box p { margin-bottom: 25px; font-size: 16px; }
+        .prompt-buttons { display: flex; gap: 15px; justify-content: center; }
+        .prompt-btn { padding: 10px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-yes { background: var(--accent-green); color: white; }
+        .btn-no { background: #ddd; color: #333; }
+
+        /* Druck-Styling – optimiert für eine Seite */
+        @page { 
+            size: A4; 
+            margin: 0; 
+        }
+        @media print {
+            body * { visibility: hidden; }
+            .overlay, .overlay * { visibility: visible; }
+            .overlay {
+                position: absolute; left: 0; top: 0; width: 100%; height: auto;
+                background: white; padding: 0; margin: 0; display: block !important; overflow: visible;
+            }
+            .a4-doc {
+                width: 210mm;
+                min-height: 297mm;
+                padding: 15mm;
+                margin: 0 auto;
+                box-shadow: none;
+                background: white;
+                page-break-after: avoid;
+                page-break-inside: avoid;
+                box-sizing: border-box;
+            }
+            .no-print, .doc-controls, .text-dropdown, .text-dropdown *, .custom-prompt {
+                display: none !important;
+            }
+            .vehicle-description, .doc-header, .doc-customer, .doc-title, .doc-footer {
+                page-break-inside: avoid;
+            }
+        }
+
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <!-- Navbar mit Kasse-Link -->
+    <nav id="navbar">
+        <div class="brand">AUTO MANAGEMENT</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item active">Home</a>
+            <a href="neu.html" class="nav-item">Neu</a>
+            <a href="lager.html" class="nav-item">Mein Lager</a>
+            <a href="kunden.html" class="nav-item">Kundenliste</a>
+            <a href="rechnung.html" class="nav-item">Rechnungsliste</a>
+            <a href="operation.html" class="nav-item">Operationen</a>
+            <a href="kasse.html" class="nav-item">Kasse</a>
+            <a href="settings.html" class="nav-item">Einstellungen</a>
+        </div>
+    </nav>
+
+
+    <div class="ops-container">
+        <!-- Sidebar mit Dokumenttypen -->
+        <div class="ops-sidebar">
+            <button class="btn-ops btn-angebot" onclick="openDocument('angebot')">Angebot</button>
+            <button class="btn-ops btn-rechnung" onclick="openDocument('rechnung')">Rechnung</button>
+            <button class="btn-ops btn-eu" onclick="openDocument('eu')">EU-Export</button>
+            <button class="btn-ops btn-export" onclick="openDocument('export')">Export (Drittland)</button>
+            <button class="btn-ops btn-vertrag" onclick="openDocument('vertrag')">Kaufvertrag</button>
+            <button class="btn-ops btn-probefahrt" onclick="openDocument('probefahrt')">Probefahrt</button>
+        </div>
+
+        <!-- Hauptbereich -->
+        <div class="ops-main">
+            <div class="data-section">
+                <!-- Kunde -->
+                <div class="entry-card">
+                    <h3>Kunde</h3>
+                    <div class="form-group">
+                        <label>Kunde suchen (Name, Telefon, KD-Nr)</label>
+                        <input type="text" id="customerSearch" placeholder="mind. 3 Buchstaben..." oninput="searchCustomer()">
+                        <div id="customerResults" class="search-results" style="display:none;"></div>
+                    </div>
+                    <div id="customerDetails" style="display:none;"></div>
+                </div>
+
+                <!-- Fahrzeug -->
+                <div class="entry-card">
+                    <h3>Fahrzeug(e)</h3>
+                    <div class="form-group">
+                        <label>Fahrzeug suchen (VIN, Marke)</label>
+                        <input type="text" id="vehicleSearch" placeholder="VIN oder Modell..." oninput="searchVehicle()">
+                        <div id="vehicleResults" class="search-results" style="display:none;"></div>
+                    </div>
+                    <div id="vehicleList" class="vehicle-list"></div>
+                    <button class="btn-add-vehicle" onclick="focusVehicleSearch()"><i class="fas fa-plus"></i> Fahrzeug hinzufügen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay für Dokumentenvorschau (A4) -->
+    <div id="docOverlay" class="overlay" style="display:none;" onclick="closeDocumentOverlay()">
+        <div class="doc-controls no-print">
+            <button class="doc-btn print" onclick="printDocument()"><i class="fas fa-print"></i> Drucken</button>
+            <button class="doc-btn pdf" onclick="printDocument()"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button class="doc-btn save" onclick="saveDocument()"><i class="fas fa-save"></i> Speichern</button>
+            <button onclick="closeDocumentOverlay()" style="margin-left:auto;"><i class="fas fa-times"></i> Schließen</button>
+        </div>
+        <div class="a4-doc" id="docPreview" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <!-- Custom Prompt für Druck nach Speichern (optional, ähnlich wie in Rechnungsliste) -->
+    <div id="printPrompt" class="custom-prompt no-print">
+        <div class="prompt-box">
+            <p><i class="fas fa-print" style="font-size: 40px; color: var(--accent-green); margin-bottom: 15px;"></i></p>
+            <p>Rechnung wurde erfolgreich gespeichert.<br>Möchten Sie sie jetzt drucken / als PDF speichern?</p>
+            <div class="prompt-buttons">
+                <button class="prompt-btn btn-yes" onclick="handlePrintDecision(true)">Ja, drucken</button>
+                <button class="prompt-btn btn-no" onclick="handlePrintDecision(false)">Nein</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYPa1h-VytnKtdaqysaexhwZmFXNKytBo",
+            authDomain: "autoohandel-bf5f2.firebaseapp.com",
+            databaseURL: "https://autoohandel-bf5f2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "autoohandel-bf5f2",
+            storageBucket: "autoohandel-bf5f2.firebasestorage.app",
+            messagingSenderId: "25702608206",
+            appId: "1:25702608206:web:b1b262e51155591015821f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Globale Variablen
+        let currentCustomer = null;
+        let currentVehicles = [];
+        let docType = '';
+        let dealerSettings = {};
+        let allTexts = { Begrüßungstexte: [], Garantie: [], Zusatz: [] };
+        let selectedTexts = { Begrüßungstexte: '', Garantie: '', Zusatz: '' };
+        let lastSavedRechnungsNr = null;
+
+        // Session State
+        function saveState() {
+            try {
+                const state = { currentCustomer, currentVehicles };
+                sessionStorage.setItem('operationState', JSON.stringify(state));
+            } catch (e) { console.error(e); }
+        }
+
+        function loadState() {
+            try {
+                const saved = sessionStorage.getItem('operationState');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    if (state.currentCustomer) {
+                        // Beim Laden aus Session müssen wir die Daten in das erwartete Format bringen
+                        // (die selectCustomer Funktion erwartet ein Objekt mit den richtigen Feldern)
+                        selectCustomer(state.currentCustomer, true);
+                    }
+                    if (state.currentVehicles) {
+                        currentVehicles = state.currentVehicles;
+                        renderVehicleList();
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        // ===== NEUE FUNKTION: Parameter aus URL lesen =====
+        async function loadFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerId = urlParams.get('customer');
+            const vehicleId = urlParams.get('vehicle');
+
+            if (customerId) {
+                try {
+                    const snap = await db.ref(`kunden/${customerId}`).once('value');
+                    const data = snap.val();
+                    if (data) {
+                        // Daten in das von selectCustomer erwartete Format bringen (mit fallback)
+                        selectCustomer({ id: customerId, ...data }, false);
+                    }
+                } catch (e) {
+                    console.error('Fehler beim Laden des Kunden aus URL:', e);
+                }
+            }
+
+            if (vehicleId) {
+                try {
+                    const snap = await db.ref(`fahrzeuge/${vehicleId}`).once('value');
+                    const data = snap.val();
+                    if (data) {
+                        addVehicle({ id: vehicleId, ...data });
+                    }
+                } catch (e) {
+                    console.error('Fehler beim Laden des Fahrzeugs aus URL:', e);
+                }
+            }
+
+            // Nach dem Laden der Daten aus der URL speichern wir den Zustand, damit er auch nach einem Reload erhalten bleibt
+            if (customerId || vehicleId) {
+                saveState();
+            }
+        }
+
+        // ---------- KUNDE ----------
+        async function searchCustomer() {
+            const input = document.getElementById('customerSearch').value;
+            if (input.length < 3) return;
+            const snap = await db.ref('kunden').once('value');
+            const data = snap.val() || {};
+            const results = [];
+            for (let id in data) {
+                const c = data[id];
+                // Unterstützung für beide Namensformate
+                const name = `${c.k_vorname || c.kunde_vorname || ''} ${c.k_nachname || c.kunde_nachname || ''}`.toLowerCase();
+                const phone = c.k_phone || c.kunde_telefon || '';
+                if (name.includes(input.toLowerCase()) || phone.includes(input)) {
+                    results.push({ id, ...c });
+                }
+            }
+            displayCustomerResults(results);
+        }
+
+        function displayCustomerResults(results) {
+            const container = document.getElementById('customerResults');
+            container.innerHTML = '';
+            if (!results.length) { container.style.display = 'none'; return; }
+            results.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'res-item';
+                const vorname = c.k_vorname || c.kunde_vorname || '';
+                const nachname = c.k_nachname || c.kunde_nachname || '';
+                const telefon = c.k_phone || c.kunde_telefon || 'kein Tel';
+                div.innerText = `${vorname} ${nachname} (${telefon})`;
+                div.onclick = () => selectCustomer(c);
+                container.appendChild(div);
+            });
+            container.style.display = 'block';
+        }
+
+        function selectCustomer(c, isFromSession = false) {
+            // Normalisiere die Daten auf das interne Format (k_*)
+            currentCustomer = {
+                id: c.id,
+                k_vorname: c.k_vorname || c.kunde_vorname || '',
+                k_nachname: c.k_nachname || c.kunde_nachname || '',
+                k_street: c.k_street || c.kunde_strasse || '',
+                k_hausnummer: c.k_hausnummer || c.kunde_hausnummer || '',
+                k_plz: c.k_plz || c.kunde_plz || '',
+                k_city: c.k_city || c.kunde_stadt || '',
+                k_country: c.k_country || c.kunde_land || 'Deutschland',
+                k_phone: c.k_phone || c.kunde_telefon || '',
+                k_email: c.k_email || c.kunde_email || '',
+                k_tax_id: c.k_tax_id || c.kunde_ust_id || '',
+                k_id_card: c.k_id_card || c.kunde_ausweis_nr || '',
+                k_type: c.k_type || c.kunde_typ || 'Privat'
+            };
+
+            document.getElementById('customerSearch').value = `${currentCustomer.k_vorname} ${currentCustomer.k_nachname}`;
+            document.getElementById('customerResults').style.display = 'none';
+            const customerDetails = document.getElementById('customerDetails');
+            customerDetails.style.display = 'block';
+
+            const strasse = currentCustomer.k_street || '';
+            const hausnummer = currentCustomer.k_hausnummer || '';
+            const plz = currentCustomer.k_plz || '';
+            const city = currentCustomer.k_city || '';
+            const country = currentCustomer.k_country || 'Deutschland';
+            const taxId = currentCustomer.k_tax_id || '';
+
+            customerDetails.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <div><strong>${currentCustomer.k_vorname} ${currentCustomer.k_nachname}</strong></div>
+                    <div>${strasse} ${hausnummer}</div>
+                    <div>${plz} ${city} ${country}</div>
+                    ${taxId ? `<div>USt-IdNr: ${taxId}</div>` : ''}
+                    <div style="margin-top: 8px;">
+                        <button onclick="clearCustomer()" style="font-size:12px; padding:4px 8px;"><i class="fas fa-times"></i> Entfernen</button>
+                    </div>
+                </div>
+            `;
+
+            if (!isFromSession) saveState();
+        }
+
+        function clearCustomer() {
+            currentCustomer = null;
+            document.getElementById('customerSearch').value = '';
+            document.getElementById('customerDetails').style.display = 'none';
+            saveState();
+        }
+
+        // ---------- FAHRZEUG ----------
+        async function searchVehicle() {
+            const input = document.getElementById('vehicleSearch').value;
+            if (input.length < 3) return;
+            const snap = await db.ref('fahrzeuge').once('value');
+            const data = snap.val() || {};
+            const results = [];
+            for (let id in data) {
+                const v = data[id];
+                // Nur verfügbare oder reservierte Fahrzeuge anzeigen
+                const status = (v.auto_status || v.status || 'verfügbar').toLowerCase();
+                if (status !== 'verfügbar' && status !== 'reserviert') continue;
+                const vin = (v.auto_vin || v.vin || '').toLowerCase();
+                const marke = (v.auto_marke || v.marke || '').toLowerCase();
+                const modell = (v.auto_model || v.modell || v.model || '').toLowerCase();
+                const searchLower = input.toLowerCase();
+                if (vin.includes(searchLower) || marke.includes(searchLower) || modell.includes(searchLower)) {
+                    results.push({ id, ...v });
+                }
+            }
+            displayVehicleResults(results);
+        }
+
+        function displayVehicleResults(results) {
+            const container = document.getElementById('vehicleResults');
+            container.innerHTML = '';
+            if (!results.length) { container.style.display = 'none'; return; }
+            results.forEach(v => {
+                const div = document.createElement('div');
+                div.className = 'res-item';
+                const marke = v.auto_marke || v.marke || '';
+                const modell = v.auto_model || v.modell || '';
+                const vin = v.auto_vin || v.vin || '';
+                div.innerText = `${marke} ${modell} (${vin})`;
+                div.onclick = () => addVehicle(v);
+                container.appendChild(div);
+            });
+            container.style.display = 'block';
+        }
+
+        function addVehicle(v) {
+            // Normalisieren auf auto_* Felder
+            const normalized = {
+                id: v.id,
+                auto_marke: v.auto_marke || v.marke || '',
+                auto_model: v.auto_model || v.modell || '',
+                auto_vin: v.auto_vin || v.vin || '',
+                auto_ez: v.auto_ez || v.ez || '',
+                auto_km: v.auto_km || v.km || 0,
+                auto_ps: v.auto_ps || v.ps || 0,
+                auto_kw: v.auto_kw || v.kw || 0,
+                auto_ccm: v.auto_ccm || v.ccm || 0,
+                auto_kraftstoff: v.auto_kraftstoff || '',
+                auto_farbe: v.auto_farbe || '',
+                auto_ek_date: v.auto_ek_date || '',
+                auto_tax: v.auto_tax || '',
+                auto_price_cash: v.auto_price_cash || 0,
+                auto_price_bank: v.auto_price_bank || 0,
+                auto_status: v.auto_status || 'verfügbar'
+            };
+            if (!currentVehicles.some(veh => veh.id === normalized.id)) {
+                currentVehicles.push({ ...normalized, verkaufspreis: '' });
+            }
+            renderVehicleList();
+            document.getElementById('vehicleSearch').value = '';
+            document.getElementById('vehicleResults').style.display = 'none';
+            saveState();
+        }
+
+        function renderVehicleList() {
+            const container = document.getElementById('vehicleList');
+            container.innerHTML = '';
+            currentVehicles.forEach((v, index) => {
+                const div = document.createElement('div');
+                div.className = 'vehicle-entry';
+                const leistung = v.auto_ps ? `${v.auto_ps} PS` : '';
+                const hubraum = v.auto_ccm ? `${v.auto_ccm} ccm` : '';
+                div.innerHTML = `
+                    <div style="flex:2;">
+                        <strong>${v.auto_marke} ${v.auto_model}</strong><br>
+                        <span class="small-note">VIN: ${v.auto_vin}</span><br>
+                        <span class="small-note">EZ: ${v.auto_ez || '--'} | ${v.auto_km || '0'} km | ${hubraum} | ${leistung}</span>
+                    </div>
+                    <div style="flex:1; display: flex; align-items: center; gap: 5px;">
+                        <label style="font-size:12px;">VK-Preis:</label>
+                        <input type="number" id="vk_${index}" value="${v.verkaufspreis || ''}" step="0.01" style="width:120px;" onchange="updateVerkaufspreis(${index}, this.value)">
+                        <span>€</span>
+                    </div>
+                    <button onclick="removeVehicle(${index})" style="background: var(--danger-red); color:white; border:none; border-radius:4px; padding:5px 10px;"><i class="fas fa-trash"></i></button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateVerkaufspreis(index, value) {
+            if (index >= 0 && index < currentVehicles.length) {
+                currentVehicles[index].verkaufspreis = parseFloat(value) || 0;
+                saveState();
+            }
+        }
+
+        function removeVehicle(index) {
+            currentVehicles.splice(index, 1);
+            renderVehicleList();
+            saveState();
+        }
+
+        function focusVehicleSearch() { document.getElementById('vehicleSearch').focus(); }
+
+        // ---------- TEXTE & EINSTELLUNGEN ----------
+        async function loadAllTexts() {
+            const snap = await db.ref('settings/texts').once('value');
+            const data = snap.val() || {};
+            for (let cat in allTexts) {
+                allTexts[cat] = [];
+                if (data[cat]) {
+                    for (let id in data[cat]) {
+                        allTexts[cat].push({
+                            id,
+                            title: data[cat][id].title,
+                            content: data[cat][id].content,
+                            isDefault: data[cat][id].isDefault || false
+                        });
+                    }
+                }
+            }
+            for (let cat in allTexts) {
+                const def = allTexts[cat].find(t => t.isDefault);
+                selectedTexts[cat] = def ? def.content : (allTexts[cat][0]?.content || '');
+            }
+        }
+
+        async function loadSettings() {
+            const snap = await db.ref('settings/haendler').once('value');
+            dealerSettings = snap.val() || {};
+            if (!dealerSettings.kennzeichen) dealerSettings.kennzeichen = 'XX-XX-XXX';
+        }
+
+        // ---------- DOKUMENTVORSCHAU ----------
+        async function openDocument(type) {
+            if (!currentCustomer) return alert('Bitte wählen Sie zuerst einen Kunden aus.');
+            if (type !== 'probefahrt' && currentVehicles.length === 0) return alert('Bitte wählen Sie mindestens ein Fahrzeug aus.');
+            if (type === 'probefahrt' && currentVehicles.length === 0) return alert('Bitte wählen Sie ein Fahrzeug für die Probefahrt aus.');
+            docType = type;
+            await loadSettings();
+            await loadAllTexts();
+            document.getElementById('docOverlay').style.display = 'flex';
+            generateDocumentPreview();
+        }
+
+        function updateText(category, content) {
+            selectedTexts[category] = content;
+            generateDocumentPreview();
+        }
+
+        function generateDocumentPreview() {
+            if (docType === 'probefahrt') {
+                generateProbefahrtPreview();
+                return;
+            }
+            const preview = document.getElementById('docPreview');
+            const heute = new Date().toLocaleDateString('de-DE');
+            const tempNr = `ENTWURF-${Math.floor(Math.random()*1000)}`;
+
+            let html = `
+                <div class="doc-content">
+                <!-- Kopfbereich: Logo und Firmendaten -->
+                <div class="doc-header">
+                    <div class="doc-logo">${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}</div>
+                    <div class="doc-company">
+                        <strong>${dealerSettings.h_firma || ''}</strong><br>
+                        ${dealerSettings.h_street || ''}<br>
+                        ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
+                        <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
+                        <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
+                        USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
+                        EORI: ${dealerSettings.h_eori || ''}
+                    </div>
+                </div>
+                <!-- Absenderzeile für Fensterbrief -->
+                <div class="doc-absender">
+                    ${dealerSettings.h_firma || ''} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
+                </div>
+                <!-- Kundendaten -->
+                <div class="doc-customer">
+                    <p><strong>${currentCustomer.k_vorname} ${currentCustomer.k_nachname}</strong></p>
+                    <p>${currentCustomer.k_street || ''} ${currentCustomer.k_hausnummer || ''}</p>
+                    <p>${currentCustomer.k_plz || ''} ${currentCustomer.k_city || ''} ${currentCustomer.k_country || 'Deutschland'}</p>
+                    ${currentCustomer.k_tax_id ? '<p>USt-IdNr: ' + currentCustomer.k_tax_id + '</p>' : ''}
+                    <p>Kunden-Nr: ${currentCustomer.kundenId || currentCustomer.id?.slice(-6) || '--'}</p>
+                </div>
+                <!-- Titel -->
+                <div class="doc-title">
+                    ${getDocumentTitle(docType)} Nr. ${tempNr}
+                </div>
+                <!-- Zeile für Datum und Lieferdatum -->
+                <div class="doc-date-row">
+                    <span>Datum: ${heute}</span>
+                    <span>Lieferdatum: <input type="text" id="lieferdatumInput" value="${heute}" style="width: 30mm;" onchange="updateLieferdatum(this.value)"></span>
+                </div>
+            `;
+
+            // Begrüßungstext mit Dropdown
+            html += `<div class="text-section">`;
+            if (allTexts.Begrüßungstexte.length) {
+                html += `<div class="section-header">`;
+                html += `<span class="text-content">${selectedTexts.Begrüßungstexte || ''}</span>`;
+                html += `<span class="text-dropdown no-print"><select onchange="updateText('Begrüßungstexte', this.value)">`;
+                allTexts.Begrüßungstexte.forEach(t => {
+                    html += `<option value="${t.content}" ${t.content === selectedTexts.Begrüßungstexte ? 'selected' : ''}>${t.title}</option>`;
+                });
+                html += `</select></span>`;
+                html += `</div>`;
+            } else {
+                html += `<div>${selectedTexts.Begrüßungstexte || 'Sehr geehrte Damen und Herren,'}</div>`;
+            }
+            html += `</div>`;
+
+            // Fahrzeuge
+            currentVehicles.forEach(v => {
+                const preis = v.verkaufspreis || 0;
+                let anzeigePreis = preis;
+
+                if (docType === 'eu' || docType === 'export') {
+                    if (v.auto_tax === '19') {
+                        anzeigePreis = preis / 1.19;
+                    } else {
+                        anzeigePreis = preis;
+                    }
+                }
+
+                // Technische Daten sammeln
+                let technischeDaten = [];
+                if (v.auto_ez) technischeDaten.push(`EZ: ${v.auto_ez}`);
+                if (v.auto_km) technischeDaten.push(`km: ${v.auto_km}`);
+                if (v.auto_ps) technischeDaten.push(`PS: ${v.auto_ps}`);
+                if (v.auto_kw) technischeDaten.push(`KW: ${v.auto_kw}`);
+                if (v.auto_ccm) technischeDaten.push(`ccm: ${v.auto_ccm}`);
+                if (v.auto_kraftstoff) technischeDaten.push(`Kraftstoff: ${v.auto_kraftstoff}`);
+                if (v.auto_farbe) technischeDaten.push(`Farbe: ${v.auto_farbe}`);
+
+                html += `
+                    <div class="vehicle-description">
+                        <div class="vehicle-desc-left">
+                            <strong>${v.auto_marke} ${v.auto_model}</strong><br>
+                            VIN: ${v.auto_vin}<br>
+                            ${technischeDaten.join(' | ')}
+                        </div>
+                        <div class="vehicle-desc-right">
+                            <div class="price-area">${anzeigePreis.toFixed(2)} €</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Summenberechnung
+            let totalNet = 0, totalMwSt = 0, totalGross = 0;
+            currentVehicles.forEach(v => {
+                const preis = v.verkaufspreis || 0;
+                if (docType === 'eu' || docType === 'export') {
+                    if (v.auto_tax === '19') {
+                        totalNet += preis / 1.19;
+                    } else {
+                        totalNet += preis;
+                    }
+                } else {
+                    if (v.auto_tax === '19') {
+                        totalNet += preis / 1.19;
+                        totalMwSt += preis - (preis / 1.19);
+                    } else {
+                        totalNet += preis;
+                    }
+                    totalGross += preis;
+                }
+            });
+
+            if (docType === 'rechnung') {
+                html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+                    <strong>Gesamt netto: ${totalNet.toFixed(2)} €</strong><br>
+                    + MwSt: ${totalMwSt.toFixed(2)} €<br>
+                    <strong>Gesamt brutto: ${totalGross.toFixed(2)} €</strong>
+                </div>`;
+            } else {
+                html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+                    <strong>Gesamtbetrag (netto): ${totalNet.toFixed(2)} €</strong>
+                </div>`;
+            }
+
+            // Rechtlicher Hinweis
+            html += `<div style="margin-top:5mm; font-style:italic; font-size:10pt;">`;
+            if (docType === 'eu') {
+                html += `EU Land: Ust-freie innergemeinschaftliche Lieferung i.S.§4 Nr. 1b in Verbindung mit §6a UStG (Art. 28c Abschn. A der 6. EG-Richtlinie)`;
+            } else if (docType === 'export') {
+                html += `In ein Drittland: USt-freie Ausfuhrlieferung i.S. § 4 Nr. 1a in Verbindung mit § 6 UStG`;
+            } else if (docType === 'rechnung' && currentVehicles.some(v => v.auto_tax === '25a')) {
+                html += `Für Vorsteuerabzugsberechtigte kein Umsatzsteuerausweis möglich, §25 a UStG.`;
+            }
+            html += `</div>`;
+
+            // Zusätzliche Texte
+            html += `<div class="text-section">`;
+            if (allTexts.Zusatz.length) {
+                html += `<div class="section-header">`;
+                html += `<span class="text-content">${selectedTexts.Zusatz || ''}</span>`;
+                html += `<span class="text-dropdown no-print"><select onchange="updateText('Zusatz', this.value)">`;
+                allTexts.Zusatz.forEach(t => {
+                    html += `<option value="${t.content}" ${t.content === selectedTexts.Zusatz ? 'selected' : ''}>${t.title}</option>`;
+                });
+                html += `</select></span>`;
+                html += `</div>`;
+            } else {
+                html += `<div>${selectedTexts.Zusatz || ''}</div>`;
+            }
+            html += `</div>`;
+
+            // Garantietext (nur wenn nicht leer)
+            if (selectedTexts.Garantie && selectedTexts.Garantie.trim() !== '') {
+                html += `<div class="text-section garantie-section" style="margin-top:3mm;">`;
+                if (allTexts.Garantie.length) {
+                    html += `<div class="section-header">`;
+                    html += `<span class="text-content">${selectedTexts.Garantie}</span>`;
+                    html += `<span class="text-dropdown no-print"><select onchange="updateText('Garantie', this.value)">`;
+                    allTexts.Garantie.forEach(t => {
+                        html += `<option value="${t.content}" ${t.content === selectedTexts.Garantie ? 'selected' : ''}>${t.title}</option>`;
+                    });
+                    html += `</select></span>`;
+                    html += `</div>`;
+                } else {
+                    html += `<div>${selectedTexts.Garantie}</div>`;
+                }
+                html += `</div>`;
+            }
+
+            html += `</div>`; // Ende doc-content
+
+            // Fußzeile
+            html += `<div class="doc-footer">
+                <div class="footer-left">
+                    <div><i class="fas fa-university"></i> <strong>Kontodaten</strong></div>
+                    <div>${dealerSettings.h_bank_name || ''}</div>
+                    <div>IBAN: ${dealerSettings.h_iban || ''}</div>
+                    <div>BIC: ${dealerSettings.h_bic || ''}</div>
+                </div>
+                <div class="footer-right">
+                    <div><i class="fas fa-address-card"></i> <strong>Kontakt</strong></div>
+                    <div><i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''}</div>
+                    <div><i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}</div>
+                </div>
+            </div>`;
+
+            preview.innerHTML = html;
+
+            const lieferdatumInput = document.getElementById('lieferdatumInput');
+            if (lieferdatumInput) lieferdatumInput.value = heute;
+        }
+
+        function generateProbefahrtPreview() {
+            const preview = document.getElementById('docPreview');
+            const heute = new Date().toLocaleDateString('de-DE');
+            const jetzt = new Date();
+            const timeStr = jetzt.getHours().toString().padStart(2,'0') + ':' + jetzt.getMinutes().toString().padStart(2,'0');
+            const fzg = currentVehicles[0] || { auto_marke: '', auto_model: '', auto_vin: '' };
+
+            let html = `
+                <div class="doc-content">
+                <!-- Kopfbereich: Logo und Firmendaten -->
+                <div class="doc-header">
+                    <div class="doc-logo">${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}</div>
+                    <div class="doc-company">
+                        <strong>${dealerSettings.h_firma || ''}</strong><br>
+                        ${dealerSettings.h_street || ''}<br>
+                        ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
+                        <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
+                        <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
+                        USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
+                        EORI: ${dealerSettings.h_eori || ''}
+                    </div>
+                </div>
+                <!-- Absenderzeile für Fensterbrief -->
+                <div class="doc-absender">
+                    ${dealerSettings.h_firma || ''} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
+                </div>
+                <!-- Kundendaten -->
+                <div class="doc-customer">
+                    <p><strong>${currentCustomer.k_vorname} ${currentCustomer.k_nachname}</strong></p>
+                    <p>${currentCustomer.k_street || ''} ${currentCustomer.k_hausnummer || ''}</p>
+                    <p>${currentCustomer.k_plz || ''} ${currentCustomer.k_city || ''} ${currentCustomer.k_country || 'Deutschland'}</p>
+                    <p>Kunden-Nr: ${currentCustomer.kundenId || currentCustomer.id?.slice(-6) || '--'}</p>
+                </div>
+                <!-- Fahrzeugdaten mit Kennzeichen -->
+                <div class="vehicle-description" style="margin-bottom:5mm;">
+                    <div class="vehicle-desc-left">
+                        <strong>Fahrzeug: ${fzg.auto_marke} ${fzg.auto_model}</strong><br>
+                        VIN: ${fzg.auto_vin}<br>
+                        Kennzeichen: ${dealerSettings.kennzeichen || 'XX-XX-XXX'}
+                    </div>
+                </div>
+                <!-- Titel -->
+                <div class="doc-title">
+                    Probefahrt Vereinbarung
+                </div>
+                <!-- Datum und Uhrzeit (editierbar) -->
+                <div class="doc-date-row">
+                    <span>Datum: <input type="text" id="probefahrtDatum" value="${heute}" style="width: 30mm;"></span>
+                    <span>von: <input type="time" id="probefahrtVon" value="${timeStr}" style="width: 20mm;"></span>
+                    <span>bis: <input type="time" id="probefahrtBis" value="${timeStr}" style="width: 20mm;"></span>
+                    <span>Zweck: 
+                        <select id="probefahrtZweck">
+                            <option value="Probefahrt">Probefahrt</option>
+                            <option value="Überführung">Überführung</option>
+                        </select>
+                    </span>
+                </div>
+                <!-- Vereinbarungstext -->
+                <div style="margin: 5mm 0; font-size: 10pt; line-height: 1.5;">
+                    <p>1. Der Probefahrer versichert, das Fahrzeug ausschließlich persönlich zum Zwecke der Probefahrt zu nutzen und im Besitz einer gültigen Fahrerlaubnis zu sein.</p>
+                    <p>2. Der Probefahrer stellt den Halter des Fahrzeuges von Ansprüchen frei, die durch die Verletzung gesetzlicher Vorschriften im Zusammenhang mit der Probefahrt entstehen.</p>
+                    <p>3. Der Probefahrer haftet für Schäden am Fahrzeug, die er verschuldet hat.</p>
+                    <p>4. Für Schäden, die durch eine der o.g. Versicherungen abgedeckt sind, beschränkt sich die Haftung auf die Selbstbeteiligung und einen eventuellen Schaden durch Rückstufung.</p>
+                </div>
+                <!-- Unterschriften -->
+                <div class="signature-area">
+                    <div class="signature-box">
+                        <div>Ort, Datum: _________________________</div>
+                        <div class="signature-line"></div>
+                        <div>Unterschrift Verkäufer</div>
+                    </div>
+                    <div class="signature-box">
+                        <div>Ort, Datum: _________________________</div>
+                        <div class="signature-line"></div>
+                        <div>Unterschrift Kunde</div>
+                    </div>
+                </div>
+                </div> <!-- Ende doc-content -->
+            `;
+
+            preview.innerHTML = html;
+        }
+
+        function getDocumentTitle(type) {
+            if (type === 'probefahrt') return 'Probefahrt Vereinbarung';
+            const titles = {
+                angebot: 'Angebot',
+                rechnung: 'Rechnung',
+                eu: 'EU-Export Rechnung',
+                export: 'Export Rechnung (Drittland)',
+                vertrag: 'Kaufvertrag'
+            };
+            return titles[type] || 'Dokument';
+        }
+
+        // ---------- DRUCKFUNKTIONEN ----------
+        function printDocument() {
+            window.print();
+        }
+
+        function printSavedDocument(rechnungsNr) {
+            const originalTitle = document.title;
+            document.title = rechnungsNr;
+            const previewDiv = document.getElementById('docPreview');
+            if (previewDiv) {
+                previewDiv.innerHTML = previewDiv.innerHTML.replace(/ENTWURF-\d+/g, rechnungsNr);
+            }
+            window.print();
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 1000);
+        }
+
+        function showPrintPrompt(rechnungsNr) {
+            lastSavedRechnungsNr = rechnungsNr;
+            document.getElementById('printPrompt').style.display = 'flex';
+        }
+
+        function handlePrintDecision(shouldPrint) {
+            document.getElementById('printPrompt').style.display = 'none';
+            if (shouldPrint && lastSavedRechnungsNr) {
+                printSavedDocument(lastSavedRechnungsNr);
+            }
+            window.location.href = 'rechnung.html';
+        }
+
+        // ---------- SPEICHERN ----------
+        async function saveDocument() {
+            if (docType === 'probefahrt') {
+                alert('Probefahrt Vereinbarung wird gespeichert (Demo).');
+                closeDocumentOverlay();
+                return;
+            }
+            if (!currentCustomer || !currentVehicles.length) return;
+
+            const year = new Date().getFullYear();
+            const rechnungenSnap = await db.ref('rechnungen').once('value');
+            const count = (rechnungenSnap.numChildren() || 0) + 1;
+            const rechnungsNr = `RE-${year}-${count.toString().padStart(4, '0')}`;
+            const lieferdatumInput = document.getElementById('lieferdatumInput');
+            const lieferdatum = lieferdatumInput ? lieferdatumInput.value : new Date().toLocaleDateString('de-DE');
+
+            const rechnungData = {
+                nr: rechnungsNr,
+                datum: new Date().toISOString(),
+                lieferdatum: lieferdatum,
+                typ: docType,
+                status: 'offen',
+                createdAt: new Date().toISOString(),
+                kunde: {
+                    id: currentCustomer.id,
+                    vorname: currentCustomer.k_vorname || '',
+                    nachname: currentCustomer.k_nachname || '',
+                    name: `${currentCustomer.k_vorname || ''} ${currentCustomer.k_nachname || ''}`.trim(),
+                    strasse: currentCustomer.k_street || '',
+                    hausnummer: currentCustomer.k_hausnummer || '',
+                    plz: currentCustomer.k_plz || '',
+                    stadt: currentCustomer.k_city || '',
+                    land: currentCustomer.k_country || 'Deutschland',
+                    email: currentCustomer.k_email || '',
+                    telefon: currentCustomer.k_phone || '',
+                    ustId: currentCustomer.k_tax_id || '',
+                    ausweisNr: currentCustomer.k_id_card || '',
+                    typ: currentCustomer.k_type || 'Privat'
+                },
+                fahrzeuge: currentVehicles.map(v => ({
+                    id: v.id,
+                    marke: v.auto_marke || '',
+                    modell: v.auto_model || '',
+                    vin: v.auto_vin || '',
+                    ez: v.auto_ez || '',
+                    km: v.auto_km || 0,
+                    ps: v.auto_ps || 0,
+                    ccm: v.auto_ccm || 0,
+                    kw: v.auto_kw || 0,
+                    kraftstoff: v.auto_kraftstoff || '',
+                    farbe: v.auto_farbe || '',
+                    verkaufspreis: v.verkaufspreis || 0,
+                    steuerart: v.auto_tax || '',
+                    einkaufspreis_cash: v.price_cash || 0,
+                    einkaufspreis_bank: v.price_bank || 0,
+                    einkaufsdatum: v.auto_ek_date || ''
+                })),
+                texte: {
+                    begruessung: selectedTexts.Begrüßungstexte || '',
+                    garantie: selectedTexts.Garantie || '',
+                    zusatz: selectedTexts.Zusatz || ''
+                },
+                gesamtNetto: berechneGesamtNetto(),
+                gesamtMwSt: berechneMwSt(),
+                gesamtBrutto: berechneGesamtBrutto(),
+                zahlungen: [],
+                storniert: false
+            };
+
+            try {
+                await db.ref('rechnungen').push(rechnungData);
+                for (let v of currentVehicles) {
+                    await db.ref(`fahrzeuge/${v.id}`).update({ status: 'verkauft' });
+                }
+                showPrintPrompt(rechnungsNr);
+                closeDocumentOverlay();
+                currentVehicles = [];
+                currentCustomer = null;
+                saveState();
+            } catch (e) {
+                alert('Fehler: ' + e.message);
+            }
+        }
+
+        function berechneGesamtNetto() {
+            let total = 0;
+            currentVehicles.forEach(v => {
+                const p = v.verkaufspreis || 0;
+                if (docType === 'eu' || docType === 'export') {
+                    total += (v.auto_tax === '19') ? p/1.19 : p;
+                } else {
+                    total += (v.auto_tax === '19') ? p/1.19 : p;
+                }
+            });
+            return total;
+        }
+
+        function berechneMwSt() {
+            if (docType !== 'rechnung') return 0;
+            let total = 0;
+            currentVehicles.forEach(v => {
+                if (v.auto_tax === '19') {
+                    total += (v.verkaufspreis || 0) - (v.verkaufspreis / 1.19);
+                }
+            });
+            return total;
+        }
+
+        function berechneGesamtBrutto() {
+            return currentVehicles.reduce((sum, v) => sum + (v.verkaufspreis || 0), 0);
+        }
+
+        function closeDocumentOverlay() {
+            document.getElementById('docOverlay').style.display = 'none';
+        }
+
+        window.onclick = function(e) {
+            if (e.target.classList.contains('overlay')) closeDocumentOverlay();
+        };
+
+        // Start: Session laden und dann URL-Parameter auswerten
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadSettings();
+            await loadAllTexts();
+            loadState();                     // zuerst Session wiederherstellen
+            await loadFromURL();              // dann URL-Parameter laden (überschreibt ggf. Session)
+        });
+    </script>
+</body>
+</html>

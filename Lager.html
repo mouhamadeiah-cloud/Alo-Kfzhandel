@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Management - Mein Lager</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+        :root {
+            --nav-bg: #1a1a1a;
+            --accent-green: #27ae60;
+            --danger-red: #e74c3c;
+            --input-border: #dcdde1;
+            --status-verfügbar: #2ecc71;
+            --status-verkauft: #e74c3c;
+            --status-reserviert: #f1c40f;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: #f4f7f6; color: #2f3640; padding-top: 50px; }
+
+        /* ===== نافبار موحد (مثل index.html) ===== */
+        #navbar {
+            background: #1a1a1a;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .brand { 
+            font-weight: bold; 
+            color: var(--accent-green); 
+            margin-right: 30px; 
+            letter-spacing: 1px;
+        }
+        .nav-links { 
+            display: flex; 
+            list-style: none; 
+            margin: 0; 
+            padding: 0; 
+            transition: 0.3s;
+        }
+        .nav-item { 
+            margin: 0 15px; 
+            cursor: pointer; 
+            color: #ccc; 
+            font-size: 14px; 
+            transition: 0.3s; 
+            text-decoration: none; 
+        }
+        .nav-item:hover, .nav-item.active { 
+            color: var(--accent-green); 
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--accent-green);
+            margin-left: auto;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: block;
+            }
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                position: absolute;
+                top: 50px;
+                left: 0;
+                background: #1a1a1a;
+                padding: 20px;
+                border-top: 1px solid #2a2a2a;
+                border-bottom: 1px solid #2a2a2a;
+            }
+            .nav-links.show {
+                display: flex;
+            }
+            .nav-item {
+                margin: 10px 0;
+                padding: 10px;
+                width: 100%;
+                text-align: left;
+            }
+        }
+
+        /* Filterbereich */
+        .filter-container {
+            max-width: 1200px; margin: 20px auto 20px auto; display: flex; gap: 15px; 
+            padding: 0 20px; align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box { flex: 1; padding: 10px; border-radius: 4px; border: 1px solid var(--input-border); min-width: 200px; }
+        .filter-dropdown { padding: 10px; border-radius: 4px; border: 1px solid var(--input-border); }
+        .counter { font-weight: bold; color: var(--nav-bg); }
+
+        .card-list { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .car-card {
+            background: white; border-radius: 8px; margin-bottom: 10px; display: flex;
+            align-items: center; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border: 1px solid transparent; transition: 0.2s; cursor: pointer; position: relative;
+            flex-wrap: wrap;
+        }
+        .car-card:hover { border-color: var(--accent-green); }
+        .car-card.selected { background: #e9ecef !important; border-color: var(--accent-green); }
+
+        .sec-left { width: 100px; text-align: center; border-right: 1px solid #eee; }
+        .sec-mid { flex: 2; padding: 0 20px; min-width: 200px; }
+        .sec-tech { flex: 1; font-size: 13px; color: #666; border-left: 1px solid #eee; padding-left: 20px; min-width: 150px; }
+        .sec-fin { width: 180px; text-align: right; font-weight: bold; }
+
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-top: 5px; border: 1px solid rgba(0,0,0,0.1); }
+        
+        .vin-label { display: block; font-family: monospace; font-size: 12px; color: #95a5a6; margin-top: 4px; }
+        .price-tag { color: var(--nav-bg); font-size: 16px; }
+
+        .quick-actions {
+            position: absolute; right: 20px; top: 10px; background: var(--nav-bg);
+            padding: 5px 10px; border-radius: 4px; display: none; gap: 8px; z-index: 5;
+        }
+        .car-card.selected .quick-actions { display: flex; }
+        .act-btn { padding: 5px 12px; border: none; border-radius: 3px; color: white; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .btn-edit { background: #3498db; }
+        .btn-bill { background: var(--accent-green); }
+        .btn-delete { background: var(--danger-red); }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000;
+        }
+        .modal {
+            background: white; width: 90%; max-width: 800px; padding: 25px; border-radius: 8px;
+            max-height: 80vh; overflow-y: auto;
+        }
+        .rev-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .rev-table th, .rev-table td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+
+        /* Formular für neue Ausgabe */
+        .new-expense {
+            background: #f9f9f9; padding: 15px; border-radius: 6px; margin: 15px 0;
+            display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+        }
+        .expense-field {
+            display: flex; flex-direction: column; flex: 1 1 150px;
+        }
+        .expense-field label {
+            font-size: 11px; font-weight: bold; color: #718093; margin-bottom: 3px;
+        }
+        .expense-field input, .expense-field select {
+            padding: 8px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .btn-add-expense {
+            background: var(--accent-green); color: white; border: none; padding: 8px 16px;
+            border-radius: 4px; cursor: pointer; font-weight: bold; height: 38px;
+        }
+        .btn-add-expense:hover { background: #219150; }
+
+        @media (max-width: 768px) {
+            .car-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .sec-left, .sec-mid, .sec-tech, .sec-fin {
+                width: 100%;
+                border: none;
+                padding: 5px 0;
+                text-align: left;
+            }
+            .sec-left { border-bottom: 1px solid #eee; }
+            .sec-tech { border-left: none; }
+            .quick-actions {
+                position: static;
+                margin-top: 10px;
+                display: flex !important;
+                background: transparent;
+                padding: 0;
+            }
+            .car-card.selected .quick-actions { display: flex; }
+            .act-btn { background: var(--nav-bg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- نافبار موحد مع جميع الصفحات -->
+    <nav id="navbar">
+        <div class="brand">AUTO MANAGEMENT</div>
+        <div class="hamburger" onclick="toggleMenu()">☰</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item">Home</a>
+            <a href="neu.html" class="nav-item">Neu</a>
+            <a href="lager.html" class="nav-item active">Mein Lager</a>
+            <a href="kunden.html" class="nav-item">Kundenliste</a>
+            <a href="rechnung.html" class="nav-item">Rechnungsliste</a>
+            <a href="operation.html" class="nav-item">Operationen</a>
+            <a href="kasse.html" class="nav-item">Kasse</a>
+            <a href="settings.html" class="nav-item">Einstellungen</a>
+        </div>
+    </nav>
+
+    <div class="filter-container">
+        <input type="text" id="smartSearch" class="search-box" placeholder="Suche (Marke, Modell, VIN, Code)..." oninput="applyFilters()">
+        <select id="statusFilter" class="filter-dropdown" onchange="applyFilters()">
+            <option value="all">Alle Status</option>
+            <option value="verfügbar">Verfügbar</option>
+            <option value="verkauft">Verkauft</option>
+            <option value="reserviert">Reserviert</option>
+        </select>
+        <div class="counter">Bestand: <span id="totalCount">0</span></div>
+    </div>
+
+    <div class="card-list" id="carList"></div>
+
+    <!-- Overlay für Revision -->
+    <div id="revOverlay" class="overlay" onclick="closeOverlay()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h3 id="revTitle">Revision</h3>
+            <div id="revTechInfo" style="font-size: 13px; color: #666; margin-bottom: 15px;"></div>
+
+            <!-- Formular für neue Ausgabe -->
+            <div class="new-expense no-print">
+                <div class="expense-field">
+                    <label>Beschreibung</label>
+                    <input type="text" id="newRevDesc" placeholder="z.B. Ölwechsel">
+                </div>
+                <div class="expense-field">
+                    <label>Betrag (€)</label>
+                    <input type="number" id="newRevAmount" step="0.01" placeholder="0.00">
+                </div>
+                <div class="expense-field">
+                    <label>Zahlungsart</label>
+                    <select id="newRevMethod">
+                        <option value="cash">Kasse (Bar)</option>
+                        <option value="bank">Bank</option>
+                    </select>
+                </div>
+                <div class="expense-field">
+                    <label>Datum</label>
+                    <input type="date" id="newRevDate">
+                </div>
+                <button class="btn-add-expense" onclick="addRevision()"><i class="fas fa-plus"></i> Hinzufügen</button>
+            </div>
+
+            <table class="rev-table">
+                <thead><tr><th>Beschreibung</th><th>Betrag</th><th>Art</th><th>Datum</th></tr></thead>
+                <tbody id="revItems"></tbody>
+            </table>
+            <button onclick="closeOverlay()" style="margin-top:20px; width:100%; padding:10px; cursor:pointer;">Schließen</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYPa1h-VytnKtdaqysaexhwZmFXNKytBo",
+            authDomain: "autoohandel-bf5f2.firebaseapp.com",
+            databaseURL: "https://autoohandel-bf5f2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "autoohandel-bf5f2",
+            storageBucket: "autoohandel-bf5f2.firebasestorage.app",
+            messagingSenderId: "25702608206",
+            appId: "1:25702608206:web:b1b262e51155591015821f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let allCars = [];
+        let selectedId = null;
+        let currentCarIdForRevision = null;
+
+        // Hamburger Menu Toggle
+        function toggleMenu() {
+            document.querySelector('.nav-links').classList.toggle('show');
+        }
+
+        // Schließe Menu wenn ein Link geklickt wird
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('show');
+            });
+        });
+
+        // Klick außerhalb schließt Menü
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-links') && !e.target.closest('.hamburger')) {
+                document.querySelector('.nav-links').classList.remove('show');
+            }
+        });
+
+        function fetchCars() {
+            db.ref('fahrzeuge').on('value', snapshot => {
+                const data = snapshot.val();
+                allCars = [];
+                if (data) {
+                    for(let id in data) {
+                        allCars.push({ id, ...data[id] });
+                    }
+                    // Sortieren: neueste zuerst (basierend auf createdAt, fallback auf id)
+                    allCars.sort((a, b) => {
+                        // Wenn createdAt vorhanden, vergleiche
+                        if (a.createdAt && b.createdAt) {
+                            return new Date(b.createdAt) - new Date(a.createdAt);
+                        }
+                        // Fallback: id (die einen Zeitstempel enthält) - neueste zuerst
+                        return b.id.localeCompare(a.id);
+                    });
+                }
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            const query = document.getElementById('smartSearch').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const filtered = allCars.filter(car => {
+                const marke = car.auto_marke || '';
+                const model = car.auto_model || '';
+                const vin = car.auto_vin || '';
+                const matchesSearch = (marke + model + vin).toLowerCase().includes(query);
+                const carStatus = car.auto_status || car.status || 'verfügbar';
+                const matchesStatus = status === 'all' || carStatus === status;
+                return matchesSearch && matchesStatus;
+            });
+            renderCards(filtered);
+        }
+
+        function renderCards(cars) {
+            const list = document.getElementById('carList');
+            document.getElementById('totalCount').innerText = cars.length;
+            list.innerHTML = "";
+
+            cars.forEach((car) => {
+                const priceCash = parseFloat(car.auto_price_cash || car.price_cash || 0);
+                const priceBank = parseFloat(car.auto_price_bank || car.price_bank || 0);
+                const totalEK = priceCash + priceBank;
+
+                const status = car.auto_status || car.status || 'verfügbar';
+                const statusColor = getComputedStyle(document.documentElement).getPropertyValue(`--status-${status}`);
+
+                const card = document.createElement('div');
+                card.className = `car-card ${selectedId === car.id ? 'selected' : ''}`;
+
+                card.onclick = (e) => { 
+                    e.stopPropagation();
+                    selectedId = car.id; 
+                    renderCards(cars); 
+                };
+
+                card.ondblclick = () => openRevision(car);
+
+                card.innerHTML = `
+                    <div class="quick-actions">
+                        <button class="act-btn btn-edit" onclick="editCar('${car.id}')"><i class="fas fa-edit"></i> Bearbeiten</button>
+                        <button class="act-btn btn-bill" onclick="sendToOperation('${car.id}')"><i class="fas fa-file-invoice"></i> Zur Rechnung</button>
+                        <button class="act-btn btn-delete" onclick="deleteCar('${car.id}')"><i class="fas fa-trash"></i> Löschen</button>
+                    </div>
+                    <div class="sec-left">
+                        <span style="font-weight:bold; font-size:12px;">${car.autoId || `A-${car.id.slice(-3)}`}</span><br>
+                        <span class="status-dot" style="background-color:${statusColor}"></span>
+                    </div>
+                    <div class="sec-mid">
+                        <strong>${car.auto_marke} ${car.auto_model}</strong>
+                        <span class="vin-label">${car.auto_vin}</span>
+                    </div>
+                    <div class="sec-tech">
+                        EZ: ${car.auto_ez || '--'}<br>
+                        KM: ${car.auto_km || '0'} | PS: ${car.auto_ps || '0'}
+                        ${car.auto_kw ? ` | KW: ${car.auto_kw}` : ''}
+                    </div>
+                    <div class="sec-fin">
+                        <div class="price-tag">${totalEK.toLocaleString()} €</div>
+                        <small style="font-weight:normal; color:#999;">${car.auto_tax === '25a' ? '§25a' : '19%'}</small>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function editCar(id) {
+            window.location.href = `neu.html?edit=${id}&type=auto`;
+        }
+
+        function sendToOperation(carId) {
+            window.location.href = `operation.html?vehicle=${carId}`;
+        }
+
+        // Neue Funktion: Auto löschen
+        async function deleteCar(carId) {
+            if (!confirm('Möchten Sie dieses Fahrzeug wirklich löschen? Alle zugehörigen Revisionen werden ebenfalls gelöscht.')) {
+                return;
+            }
+
+            try {
+                // 1. Alle Revisionen des Fahrzeugs löschen
+                const revisionsSnap = await db.ref(`fahrzeuge/${carId}/revisions`).once('value');
+                const revisions = revisionsSnap.val();
+                if (revisions) {
+                    for (let revId in revisions) {
+                        await db.ref(`fahrzeuge/${carId}/revisions/${revId}`).remove();
+                    }
+                }
+
+                // 2. Das Fahrzeug selbst löschen
+                await db.ref(`fahrzeuge/${carId}`).remove();
+
+                alert('Fahrzeug erfolgreich gelöscht!');
+                // Auswahl aufheben
+                selectedId = null;
+                // Die Liste aktualisiert sich automatisch durch den Firebase-Listener
+            } catch (e) {
+                alert('Fehler beim Löschen: ' + e.message);
+            }
+        }
+
+        function openRevision(car) {
+            selectedId = car.id;
+            currentCarIdForRevision = car.id;
+            document.getElementById('revOverlay').style.display = 'flex';
+            document.getElementById('revTitle').innerText = `${car.auto_marke} ${car.auto_model} - Revision`;
+
+            const priceCash = parseFloat(car.auto_price_cash || car.price_cash || 0);
+            const priceBank = parseFloat(car.auto_price_bank || car.price_bank || 0);
+            const totalPrice = priceCash + priceBank;
+            document.getElementById('revTechInfo').innerHTML = `
+                <strong>Einkaufsdatum:</strong> ${car.auto_ek_date || '--'} | 
+                <strong>Preis:</strong> ${totalPrice.toLocaleString()} €
+                ${car.auto_kw ? `<br><strong>KW:</strong> ${car.auto_kw}` : ''}
+                ${car.auto_ccm ? `<br><strong>Hubraum:</strong> ${car.auto_ccm} ccm` : ''}
+            `;
+
+            document.getElementById('newRevDate').valueAsDate = new Date();
+            loadRevisions(car.id);
+        }
+
+        function loadRevisions(carId) {
+            db.ref(`fahrzeuge/${carId}/revisions`).on('value', snapshot => {
+                const tbody = document.getElementById('revItems');
+                tbody.innerHTML = "";
+                const data = snapshot.val();
+                if (data) {
+                    for(let id in data) {
+                        const r = data[id];
+                        tbody.innerHTML += `<tr><td>${r.desc}</td><td>${r.amount} €</td><td>${r.method === 'cash' ? 'Kasse' : 'Bank'}</td><td>${r.date}</td></tr>`;
+                    }
+                }
+            });
+        }
+
+        async function addRevision() {
+            if (!currentCarIdForRevision) return;
+
+            const desc = document.getElementById('newRevDesc').value.trim();
+            const amount = parseFloat(document.getElementById('newRevAmount').value);
+            const method = document.getElementById('newRevMethod').value;
+            const date = document.getElementById('newRevDate').value;
+
+            if (!desc || isNaN(amount) || amount <= 0 || !date) {
+                alert('Bitte alle Felder ausfüllen.');
+                return;
+            }
+
+            const revData = {
+                desc: desc,
+                amount: amount,
+                method: method,
+                date: date,
+                timestamp: Date.now()
+            };
+            const revRef = await db.ref(`fahrzeuge/${currentCarIdForRevision}/revisions`).push(revData);
+
+            await db.ref('kasse/transaktionen').push({
+                beschreibung: `Reparatur/Service: ${desc} (Fahrzeug ${currentCarIdForRevision})`,
+                betrag: -amount,
+                methode: method,
+                datum: date,
+                typ: 'ausgabe',
+                fahrzeugId: currentCarIdForRevision,
+                revisionId: revRef.key
+            });
+
+            document.getElementById('newRevDesc').value = '';
+            document.getElementById('newRevAmount').value = '';
+            document.getElementById('newRevDate').valueAsDate = new Date();
+        }
+
+        function closeOverlay() {
+            document.getElementById('revOverlay').style.display = 'none';
+        }
+
+        window.onload = fetchCars;
+    </script>
+</body>
+</html>

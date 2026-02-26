@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Management - Neu / Edit</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --nav-bg: #1a1a1a;
+            --accent-green: #27ae60;
+            --danger-red: #e74c3c;
+            --input-border: #dcdde1;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { margin: 0; background: #f4f7f6; color: #2f3640; padding-top: 50px; }
+
+        /* ===== نافبار موحد (مثل index.html) ===== */
+        #navbar {
+            background: #1a1a1a;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .brand { 
+            font-weight: bold; 
+            color: var(--accent-green); 
+            margin-right: 30px; 
+            letter-spacing: 1px;
+        }
+        .nav-links { 
+            display: flex; 
+            list-style: none; 
+            margin: 0; 
+            padding: 0; 
+            transition: 0.3s;
+        }
+        .nav-item { 
+            margin: 0 15px; 
+            cursor: pointer; 
+            color: #ccc; 
+            font-size: 14px; 
+            transition: 0.3s; 
+            text-decoration: none; 
+        }
+        .nav-item:hover, .nav-item.active { 
+            color: var(--accent-green); 
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--accent-green);
+            margin-left: auto;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: block;
+            }
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                position: absolute;
+                top: 50px;
+                left: 0;
+                background: #1a1a1a;
+                padding: 20px;
+                border-top: 1px solid #2a2a2a;
+                border-bottom: 1px solid #2a2a2a;
+            }
+            .nav-links.show {
+                display: flex;
+            }
+            .nav-item {
+                margin: 10px 0;
+                padding: 10px;
+                width: 100%;
+                text-align: left;
+            }
+        }
+
+        /* باقي الأنماط (من neu.html القديمة) */
+        #main-content { margin-top: 20px; padding: 20px; display: flex; gap: 20px; justify-content: center; }
+        .page-layout { display: flex; width: 95%; max-width: 1200px; gap: 20px; }
+
+        .sub-nav { width: 180px; background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); height: fit-content; }
+        .sub-item { padding: 12px; margin-bottom: 8px; cursor: pointer; border-radius: 5px; background: #f9f9f9; text-align: center; font-weight: bold; transition: 0.2s; font-size: 14px; }
+        .sub-item.active { background: var(--accent-green); color: white; }
+
+        .content-section { flex: 1; background: white; border-radius: 8px; padding: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 100px; }
+        .form-block { margin-bottom: 25px; }
+        .form-block h3 { margin-top: 0; font-size: 15px; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-bottom: 15px; color: var(--nav-bg); text-transform: uppercase; letter-spacing: 1px; }
+
+        .row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px; }
+        .input-group { display: flex; flex-direction: column; }
+        label { font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #718093; }
+        input, select { padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 4px; font-size: 14px; outline: none; transition: 0.2s; }
+        input:focus { border-color: var(--accent-green); }
+        input.invalid { border-color: var(--danger-red) !important; background: #fff5f5; }
+
+        .w-small { width: 80px; }
+        .w-medium { width: 160px; }
+        .w-large { width: 280px; }
+        .w-full { width: 100%; }
+
+        .action-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 15px; display: flex; gap: 10px; justify-content: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+        .btn { padding: 10px 30px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; min-width: 150px; }
+        .btn-save { background: var(--accent-green); color: white; }
+        .btn-save:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-clear { background: #dcdde1; color: #2f3640; }
+        .btn-cancel { background: var(--danger-red); color: white; }
+        
+        .edit-mode-active { border: 2px solid var(--accent-green) !important; background: #f0fff4; }
+        .hidden { display: none; }
+
+        @media (max-width: 768px) {
+            .page-layout { flex-direction: column; }
+            .sub-nav { width: 100%; }
+            .w-large, .w-medium, .w-small { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- نافبار موحد مع جميع الصفحات (مثل index.html) -->
+    <nav id="navbar">
+        <div class="brand">AUTO MANAGEMENT</div>
+        <div class="hamburger" onclick="toggleMenu()">☰</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item">Home</a>
+            <a href="neu.html" class="nav-item active">Neu</a>
+            <a href="lager.html" class="nav-item">Mein Lager</a>
+            <a href="kunden.html" class="nav-item">Kundenliste</a>
+            <a href="rechnung.html" class="nav-item">Rechnungsliste</a>
+            <a href="operation.html" class="nav-item">Operationen</a>
+            <a href="kasse.html" class="nav-item">Kasse</a>
+            <a href="settings.html" class="nav-item">Einstellungen</a>
+        </div>
+    </nav>
+
+    <div id="main-content">
+        <div class="page-layout">
+            <div class="sub-nav">
+                <div id="tab-auto" class="sub-item active" onclick="switchTab('auto')">Auto Neu</div>
+                <div id="tab-kunde" class="sub-item" onclick="switchTab('kunde')">Kunde Neu</div>
+            </div>
+
+            <div class="content-section" id="form-container">
+                <!-- قسم إدخال السيارة -->
+                <div id="section-auto">
+                    <div class="form-block">
+                        <h3>A - Technische Daten</h3>
+                        <div class="row">
+                            <div class="input-group w-large"><label>Marke</label><input type="text" id="auto_marke"></div>
+                            <div class="input-group w-large"><label>Modell</label><input type="text" id="auto_model"></div>
+                        </div>
+                        <div class="row">
+                            <div class="input-group w-large"><label>VIN (17 Stellen)</label><input type="text" id="auto_vin" maxlength="17" oninput="validateVIN(this)"></div>
+                            <div class="input-group w-medium"><label>Erstzulassung (EZ)</label><input type="date" id="auto_ez"></div>
+                        </div>
+                        <div class="row">
+                            <div class="input-group w-medium"><label>KM-Stand</label><input type="number" id="auto_km"></div>
+                            <div class="input-group w-small"><label>KW</label><input type="number" id="auto_kw" oninput="calcPower('kw')"></div>
+                            <div class="input-group w-small"><label>PS</label><input type="number" id="auto_ps" oninput="calcPower('ps')"></div>
+                            <div class="input-group w-medium"><label>Hubraum (ccm)</label><input type="number" id="auto_ccm"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-block">
+                        <h3>B - Einkauf & Finanzen</h3>
+                        <div class="row">
+                            <div class="input-group w-medium"><label>Einkaufsdatum</label><input type="date" id="auto_ek_date"></div>
+                            <div class="input-group w-large">
+                                <label>Steuerart</label>
+                                <select id="auto_tax" onchange="checkForm()">
+                                    <option value="">-- Wählen --</option>
+                                    <option value="25a">§25a Differenzbesteuerung</option>
+                                    <option value="19">19% MwSt (Regelbesteuerung)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-group w-medium"><label>Preis (€) - BAR</label><input type="number" id="auto_price_cash"></div>
+                            <div class="input-group w-medium"><label>Preis (€) - BANK</label><input type="number" id="auto_price_bank"></div>
+                        </div>
+                        <input type="hidden" id="auto_status" value="verfügbar">
+                    </div>
+                </div>
+
+                <!-- قسم إدخال الزبون -->
+                <div id="section-kunde" class="hidden">
+                    <div class="form-block">
+                        <h3>A - Persönliche Daten</h3>
+                        <div class="row">
+                            <div class="input-group w-large"><label>Vorname</label><input type="text" id="kunde_vorname"></div>
+                            <div class="input-group w-large"><label>Nachname</label><input type="text" id="kunde_nachname"></div>
+                        </div>
+                        <div class="row">
+                            <div class="input-group w-large"><label>E-Mail</label><input type="email" id="kunde_email"></div>
+                            <div class="input-group w-large"><label>Telefon</label><input type="text" id="kunde_telefon"></div>
+                        </div>
+                    </div>
+                    <div class="form-block">
+                        <h3>B - Adresse</h3>
+                        <div class="row">
+                            <div class="input-group w-large"><label>Straße</label><input type="text" id="kunde_strasse"></div>
+                            <div class="input-group w-small"><label>Hausnummer</label><input type="text" id="kunde_hausnummer"></div>
+                            <div class="input-group w-small"><label>PLZ</label><input type="text" id="kunde_plz"></div>
+                            <div class="input-group w-medium"><label>Stadt</label><input type="text" id="kunde_stadt"></div>
+                            <div class="input-group w-medium"><label>Land</label><input type="text" id="kunde_land" value="Deutschland"></div>
+                        </div>
+                    </div>
+                    <div class="form-block">
+                        <h3>C - Weitere Informationen</h3>
+                        <div class="row">
+                            <div class="input-group w-large"><label>Ausweis-Nr.</label><input type="text" id="kunde_ausweis_nr"></div>
+                            <div class="input-group w-large"><label>Steuer-Nr / USt-IdNr</label><input type="text" id="kunde_ust_id"></div>
+                            <div class="input-group w-medium">
+                                <label>Kunden-Typ</label>
+                                <select id="kunde_typ">
+                                    <option value="Privat">Privat</option>
+                                    <option value="Gewerblich">Gewerblich</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button id="btn-save" class="btn btn-save" disabled onclick="saveData()">Speichern</button>
+        <button class="btn btn-clear" onclick="clearForm()">Leeren / Zurücksetzen</button>
+        <button class="btn btn-cancel" onclick="window.location.href='index.html'">Abbrechen (Home)</button>
+    </div>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYPa1h-VytnKtdaqysaexhwZmFXNKytBo",
+            authDomain: "autoohandel-bf5f2.firebaseapp.com",
+            databaseURL: "https://autoohandel-bf5f2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "autoohandel-bf5f2",
+            storageBucket: "autoohandel-bf5f2.firebasestorage.app",
+            messagingSenderId: "25702608206",
+            appId: "1:25702608206:web:b1b262e51155591015821f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Hamburger Menu Funktion
+        function toggleMenu() {
+            document.querySelector('.nav-links').classList.toggle('show');
+        }
+
+        // Schließe Menu wenn ein Link geklickt wird
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('show');
+            });
+        });
+
+        // متغيرات عامة
+        let activeTab = 'auto';
+        let editId = null;
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const idToEdit = urlParams.get('edit');
+            const typeToEdit = urlParams.get('type');
+            
+            if (idToEdit) {
+                prepareEditMode(idToEdit, typeToEdit);
+            }
+        };
+
+        // دوال التحويل للبيانات القديمة (للزبون)
+        function convertOldToNewForKunde(oldData) {
+            return {
+                kunde_vorname: oldData.k_vorname || oldData.kunde_vorname || '',
+                kunde_nachname: oldData.k_nachname || oldData.kunde_nachname || '',
+                kunde_email: oldData.k_email || oldData.kunde_email || '',
+                kunde_telefon: oldData.k_phone || oldData.kunde_telefon || '',
+                kunde_strasse: oldData.k_street || oldData.kunde_strasse || '',
+                kunde_hausnummer: oldData.kunde_hausnummer || '',
+                kunde_plz: oldData.k_plz || oldData.kunde_plz || '',
+                kunde_stadt: oldData.k_city || oldData.kunde_stadt || '',
+                kunde_land: oldData.k_country || oldData.kunde_land || 'Deutschland',
+                kunde_ausweis_nr: oldData.k_id_card || oldData.kunde_ausweis_nr || '',
+                kunde_ust_id: oldData.k_tax_id || oldData.kunde_ust_id || '',
+                kunde_typ: oldData.k_type || oldData.kunde_typ || 'Privat',
+                createdAt: oldData.createdAt,
+                lastUpdate: oldData.lastUpdate
+            };
+        }
+
+        function convertOldToNewForAuto(oldData) {
+            return {
+                auto_marke: oldData.auto_marke || oldData.marke || '',
+                auto_model: oldData.auto_model || oldData.modell || '',
+                auto_vin: oldData.auto_vin || oldData.vin || '',
+                auto_ez: oldData.auto_ez || oldData.ez || '',
+                auto_km: oldData.auto_km || oldData.km || 0,
+                auto_kw: oldData.auto_kw || oldData.kw || 0,
+                auto_ps: oldData.auto_ps || oldData.ps || 0,
+                auto_ccm: oldData.auto_ccm || oldData.ccm || 0,
+                auto_ek_date: oldData.auto_ek_date || oldData.ek_date || '',
+                auto_tax: oldData.auto_tax || oldData.tax || '',
+                auto_price_cash: oldData.auto_price_cash || oldData.price_cash || 0,
+                auto_price_bank: oldData.auto_price_bank || oldData.price_bank || 0,
+                auto_status: oldData.auto_status || oldData.status || 'verfügbar',
+                createdAt: oldData.createdAt,
+                lastUpdate: oldData.lastUpdate
+            };
+        }
+
+        async function prepareEditMode(id, type) {
+            editId = id;
+            activeTab = (type === 'kunde') ? 'kunde' : 'auto';
+            
+            document.getElementById('form-container').classList.add('edit-mode-active');
+            document.getElementById('btn-save').innerText = "Änderungen Speichern";
+            
+            switchTab(activeTab);
+
+            const path = (activeTab === 'auto') ? `fahrzeuge/${id}` : `kunden/${id}`;
+            
+            try {
+                const snapshot = await db.ref(path).once('value');
+                const data = snapshot.val();
+                
+                if (data) {
+                    let convertedData;
+                    if (activeTab === 'kunde') {
+                        convertedData = convertOldToNewForKunde(data);
+                    } else {
+                        convertedData = convertOldToNewForAuto(data);
+                    }
+                    
+                    for (let key in convertedData) {
+                        const el = document.getElementById(key);
+                        if (el) el.value = convertedData[key];
+                    }
+                    
+                    if(activeTab === 'auto') validateVIN(document.getElementById('auto_vin'));
+                    checkForm();
+                }
+            } catch (error) {
+                console.error("Fehler beim Laden der Daten:", error);
+            }
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.getElementById('section-auto').classList.toggle('hidden', tab !== 'auto');
+            document.getElementById('section-kunde').classList.toggle('hidden', tab !== 'kunde');
+            
+            document.querySelectorAll('.sub-item').forEach(i => i.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            if(editId) {
+                document.getElementById('tab-auto').innerText = (tab === 'auto') ? "Auto Edit" : "Auto Neu";
+                document.getElementById('tab-kunde').innerText = (tab === 'kunde') ? "Kunde Edit" : "Kunde Neu";
+            }
+            
+            checkForm();
+        }
+
+        function validateVIN(el) {
+            if (!el) return;
+            if (el.value.length !== 17) el.classList.add('invalid');
+            else el.classList.remove('invalid');
+            checkForm();
+        }
+
+        function calcPower(source) {
+            const kw = document.getElementById('auto_kw');
+            const ps = document.getElementById('auto_ps');
+            if(source === 'kw') ps.value = kw.value ? Math.round(kw.value * 1.3596) : "";
+            else kw.value = ps.value ? Math.round(ps.value / 1.3596) : "";
+            checkForm();
+        }
+
+        function checkForm() {
+            const btn = document.getElementById('btn-save');
+            if(activeTab === 'auto') {
+                const marke = document.getElementById('auto_marke').value.trim();
+                const vin = document.getElementById('auto_vin').value.trim();
+                const tax = document.getElementById('auto_tax').value;
+                btn.disabled = !(marke !== "" && vin.length === 17 && tax !== "");
+            } else {
+                const vorname = document.getElementById('kunde_vorname').value.trim();
+                const nachname = document.getElementById('kunde_nachname').value.trim();
+                btn.disabled = !(vorname !== "" && nachname !== "");
+            }
+        }
+
+        document.addEventListener('input', checkForm);
+
+        function clearForm() {
+            if(editId) {
+                if(confirm("Möchten Sie den Editiermodus verlassen?")) {
+                    window.location.href = "index.html";
+                }
+                return;
+            }
+            const inputs = document.querySelectorAll('input, select');
+            inputs.forEach(el => {
+                if (el.id === 'kunde_land') el.value = "Deutschland";
+                else el.value = "";
+            });
+            checkForm();
+        }
+
+        async function saveData() {
+            const btn = document.getElementById('btn-save');
+            btn.disabled = true;
+            
+            const collection = activeTab === 'auto' ? "fahrzeuge" : "kunden";
+            const data = {}; 
+            
+            const inputs = document.querySelectorAll(`#section-${activeTab} input, #section-${activeTab} select`);
+            inputs.forEach(el => { 
+                if(el.id) data[el.id] = el.value; 
+            });
+            
+            data.lastUpdate = new Date().toISOString();
+
+            try {
+                if (editId) {
+                    await db.ref(`${collection}/${editId}`).update(data);
+                    alert("Erfolgreich aktualisiert!");
+                    window.location.href = (activeTab === 'auto') ? "lager.html" : "kunden.html";
+                } else {
+                    data.createdAt = new Date().toISOString();
+                    if(activeTab === 'auto') {
+                        data.auto_status = "verfügbar";
+                    }
+                    await db.ref(collection).push(data);
+                    alert("Erfolgreich gespeichert!");
+                    location.reload();
+                }
+            } catch (e) { 
+                alert("Fehler: " + e.message); 
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
