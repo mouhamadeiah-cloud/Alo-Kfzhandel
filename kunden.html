@@ -553,4 +553,559 @@
         window.onload = fetchCustomers;
     </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Management - Kundenliste</title>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <style>
+        :root {
+            --nav-bg: #1a1a1a;
+            --accent-green: #27ae60;
+            --danger-red: #e74c3c;
+            --input-border: #dcdde1;
+            --gray-text: #718093;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { 
+            margin: 0; 
+            background: #f4f7f6; 
+            color: #2f3640;
+            padding-top: 50px;
+        }
+
+        /* ===== نافبار موحد (مثل index.html) ===== */
+        #navbar {
+            background: #1a1a1a;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .brand { 
+            font-weight: bold; 
+            color: var(--accent-green); 
+            margin-right: 30px; 
+            letter-spacing: 1px;
+        }
+        .nav-links { 
+            display: flex; 
+            list-style: none; 
+            margin: 0; 
+            padding: 0; 
+            transition: 0.3s;
+        }
+        .nav-item { 
+            margin: 0 15px; 
+            cursor: pointer; 
+            color: #ccc; 
+            font-size: 14px; 
+            transition: 0.3s; 
+            text-decoration: none; 
+        }
+        .nav-item:hover, .nav-item.active { 
+            color: var(--accent-green); 
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--accent-green);
+            margin-left: auto;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: block;
+            }
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                position: absolute;
+                top: 50px;
+                left: 0;
+                background: #1a1a1a;
+                padding: 20px;
+                border-top: 1px solid #2a2a2a;
+                border-bottom: 1px solid #2a2a2a;
+            }
+            .nav-links.show {
+                display: flex;
+            }
+            .nav-item {
+                margin: 10px 0;
+                padding: 10px;
+                width: 100%;
+                text-align: left;
+            }
+        }
+
+        /* Filterbereich */
+        .filter-container {
+            max-width: 1200px;
+            margin: 20px auto 20px auto;
+            display: flex;
+            gap: 15px;
+            padding: 0 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            flex: 1;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--input-border);
+            outline: none;
+            min-width: 200px;
+        }
+        .filter-dropdown {
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid var(--input-border);
+            cursor: pointer;
+        }
+        .counter {
+            font-weight: bold;
+            color: var(--nav-bg);
+            min-width: 120px;
+        }
+
+        /* Kartenliste */
+        .card-list {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        .customer-card {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border: 1px solid transparent;
+            transition: 0.2s;
+            cursor: pointer;
+            position: relative;
+            flex-wrap: wrap;
+        }
+        .customer-card:hover {
+            border-color: var(--accent-green);
+        }
+        .customer-card.selected {
+            background: #e9ecef !important;
+            border-color: var(--accent-green);
+        }
+
+        .sec-left {
+            width: 120px;
+            text-align: center;
+            border-right: 1px solid #eee;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .sec-mid {
+            flex: 2;
+            padding: 0 20px;
+            min-width: 200px;
+        }
+        .sec-address {
+            flex: 1.5;
+            font-size: 13px;
+            color: #666;
+            border-left: 1px solid #eee;
+            padding-left: 20px;
+            min-width: 180px;
+        }
+        .sec-tax {
+            width: 180px;
+            text-align: right;
+            font-size: 12px;
+            color: var(--gray-text);
+        }
+
+        .type-icon {
+            font-size: 18px;
+            display: block;
+            margin-bottom: 3px;
+        }
+        .sub-text {
+            display: block;
+            font-size: 12px;
+            color: var(--gray-text);
+            margin-top: 4px;
+        }
+
+        .quick-actions {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            background: var(--nav-bg);
+            padding: 5px 10px;
+            border-radius: 4px;
+            display: none;
+            gap: 8px;
+            z-index: 5;
+        }
+        .customer-card.selected .quick-actions {
+            display: flex;
+        }
+        .act-btn {
+            padding: 5px 12px;
+            border: none;
+            border-radius: 3px;
+            color: white;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .btn-edit {
+            background: #3498db;
+        }
+        .btn-bill {
+            background: var(--accent-green);
+        }
+        .btn-delete {
+            background: var(--danger-red);
+        }
+
+        /* Overlay für Details */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            padding: 25px;
+            border-radius: 8px;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            cursor: pointer;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .detail-row {
+            margin-bottom: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 5px;
+        }
+        .detail-label {
+            font-size: 11px;
+            color: var(--gray-text);
+            font-weight: bold;
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .customer-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .sec-left, .sec-mid, .sec-address, .sec-tax {
+                width: 100%;
+                border: none;
+                padding: 5px 0;
+                text-align: left;
+            }
+            .sec-left {
+                border-bottom: 1px solid #eee;
+            }
+            .sec-address {
+                border-left: none;
+            }
+            .quick-actions {
+                position: static;
+                margin-top: 10px;
+                display: flex !important;
+                background: transparent;
+                padding: 0;
+            }
+            .customer-card.selected .quick-actions {
+                display: flex;
+            }
+            .act-btn {
+                background: var(--nav-bg);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- نافبار موحد مع جميع الصفحات -->
+    <nav id="navbar">
+        <div class="brand">AUTO MANAGEMENT</div>
+        <div class="hamburger" onclick="toggleMenu()">☰</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item">Home</a>
+            <a href="neu.html" class="nav-item">Neu</a>
+            <a href="lager.html" class="nav-item">Mein Lager</a>
+            <a href="kunden.html" class="nav-item active">Kundenliste</a>
+            <a href="rechnung.html" class="nav-item">Rechnungsliste</a>
+            <a href="operation.html" class="nav-item">Operationen</a>
+            <a href="kasse.html" class="nav-item">Kasse</a>
+            <a href="settings.html" class="nav-item">Einstellungen</a>
+        </div>
+    </nav>
+
+    <div class="filter-container">
+        <input type="text" id="custSearch" class="search-box" placeholder="Suche (Name, Telefon, PLZ, KD-Nr)..." oninput="applyFilters()">
+        
+        <select id="typeFilter" class="filter-dropdown" onchange="applyFilters()">
+            <option value="all">Alle Kunden</option>
+            <option value="Privat">Privatpersonen</option>
+            <option value="Gewerblich">Gewerbliche Kunden</option>
+        </select>
+        
+        <div class="counter">Kunden: <span id="totalCust">0</span></div>
+    </div>
+
+    <div class="card-list" id="customerList"></div>
+
+    <!-- Overlay für Details -->
+    <div id="custOverlay" class="overlay" onclick="closeOverlay()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="closeOverlay()">×</span>
+            <h3 id="detName" style="margin-top: 0; color: var(--accent-green);"></h3>
+            <div id="detContent"></div>
+            <button onclick="closeOverlay()" style="margin-top:20px; width:100%; padding:10px; cursor:pointer; background: #eee; border:none; border-radius:4px;">Schließen</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYPa1h-VytnKtdaqysaexhwZmFXNKytBo",
+            authDomain: "autoohandel-bf5f2.firebaseapp.com",
+            databaseURL: "https://autoohandel-bf5f2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "autoohandel-bf5f2",
+            storageBucket: "autoohandel-bf5f2.firebasestorage.app",
+            messagingSenderId: "25702608206",
+            appId: "1:25702608206:web:b1b262e51155591015821f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Hamburger Menu Toggle
+        function toggleMenu() {
+            document.querySelector('.nav-links').classList.toggle('show');
+        }
+
+        // Schließe Menu wenn ein Link geklickt wird
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.querySelector('.nav-links').classList.remove('show');
+            });
+        });
+
+        // Klick außerhalb schließt Menü
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-links') && !e.target.closest('.hamburger')) {
+                document.querySelector('.nav-links').classList.remove('show');
+            }
+        });
+
+        // Globale Variablen
+        let allCustomers = [];
+        let selectedId = null;
+
+        // Überwachen der Kunden-Daten
+        function fetchCustomers() {
+            db.ref('kunden').on('value', snapshot => {
+                const data = snapshot.val();
+                allCustomers = [];
+                if (data) {
+                    for (let id in data) {
+                        allCustomers.push({ id, ...data[id] });
+                    }
+                    // Sortieren: neueste zuerst (basierend auf createdAt, fallback auf id)
+                    allCustomers.sort((a, b) => {
+                        if (a.createdAt && b.createdAt) {
+                            return new Date(b.createdAt) - new Date(a.createdAt);
+                        }
+                        return b.id.localeCompare(a.id);
+                    });
+                }
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            const searchQuery = document.getElementById('custSearch').value.toLowerCase().trim();
+            const filterValue = document.getElementById('typeFilter').value;
+            
+            const filteredData = allCustomers.filter(customer => {
+                const firstName = (customer.kunde_vorname || customer.k_vorname || "").toLowerCase();
+                const lastName = (customer.kunde_nachname || customer.k_nachname || "").toLowerCase();
+                const fullName = firstName + " " + lastName;
+                const phone = (customer.kunde_telefon || customer.k_phone || "").toLowerCase();
+                const plz = (customer.kunde_plz || customer.k_plz || "").toLowerCase();
+                
+                const matchesSearch = fullName.includes(searchQuery) || 
+                                     phone.includes(searchQuery) || 
+                                     plz.includes(searchQuery);
+
+                const customerType = (customer.kunde_typ || customer.k_type || "Privat").trim();
+                const matchesType = (filterValue === "all") || (customerType === filterValue);
+
+                return matchesSearch && matchesType;
+            });
+
+            renderCards(filteredData);
+        }
+
+        function renderCards(customers) {
+            const list = document.getElementById('customerList');
+            document.getElementById('totalCust').innerText = customers.length;
+            list.innerHTML = "";
+
+            if (customers.length === 0) {
+                list.innerHTML = "<div style='text-align:center; color:#999; margin-top:20px;'>Keine Ergebnisse gefunden.</div>";
+                return;
+            }
+
+            customers.forEach((c) => {
+                const isGewerbe = (c.kunde_typ || c.k_type || 'Privat') === 'Gewerblich';
+                
+                const strasse = c.kunde_strasse || c.k_street || '';
+                const hausnummer = c.kunde_hausnummer || '';
+                const plz = c.kunde_plz || c.k_plz || '';
+                const stadt = c.kunde_stadt || c.k_city || '';
+                const land = c.kunde_land || c.k_country || 'Deutschland';
+                
+                const card = document.createElement('div');
+                card.className = `customer-card ${selectedId === c.id ? 'selected' : ''}`;
+                
+                card.onclick = (e) => {
+                    e.stopPropagation();
+                    selectedId = (selectedId === c.id) ? null : c.id;
+                    renderCards(customers); 
+                };
+                
+                card.ondblclick = () => openDetails(c);
+
+                card.innerHTML = `
+                    <div class="quick-actions">
+                        <button class="act-btn btn-edit" onclick="editCust('${c.id}')"><i class="fas fa-edit"></i> Bearbeiten</button>
+                        <button class="act-btn btn-bill" onclick="sendToOperation('${c.id}')"><i class="fas fa-file-invoice"></i> Zur Rechnung</button>
+                        <button class="act-btn btn-delete" onclick="deleteCustomer('${c.id}')"><i class="fas fa-trash"></i> Löschen</button>
+                    </div>
+                    <div class="sec-left">
+                        <span class="type-icon">${isGewerbe ? '🏢' : '👤'}</span>
+                        <span style="font-weight:bold; font-size:13px;">${c.kundenId || `KD-${c.id.slice(-4)}`}</span><br>
+                        <small style="font-weight:normal; color:#999">${c.kunde_typ || c.k_type || 'Privat'}</small>
+                    </div>
+                    <div class="sec-mid">
+                        <strong>${c.kunde_vorname || c.k_vorname || ''} ${c.kunde_nachname || c.k_nachname || ''}</strong>
+                        <span class="sub-text">${c.kunde_telefon || c.k_phone || '--'} | ${c.kunde_email || c.k_email || '--'}</span>
+                    </div>
+                    <div class="sec-address">
+                        ${strasse} ${hausnummer}<br>
+                        ${plz} ${stadt} ${land !== 'Deutschland' ? land : ''}
+                    </div>
+                    <div class="sec-tax">
+                        ${isGewerbe ? `Ust.Id: <b>${c.kunde_ust_id || c.k_tax_id || '--'}</b>` : `<span style="color:#eee">Privat</span>`}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function openDetails(c) {
+            document.getElementById('custOverlay').style.display = 'flex';
+            document.getElementById('detName').innerText = `${c.kunde_vorname || c.k_vorname || ''} ${c.kunde_nachname || c.k_nachname || ''}`;
+            
+            const strasse = c.kunde_strasse || c.k_street || '--';
+            const hausnummer = c.kunde_hausnummer || '';
+            const plz = c.kunde_plz || c.k_plz || '';
+            const stadt = c.kunde_stadt || c.k_city || '';
+            const land = c.kunde_land || c.k_country || 'Deutschland';
+            const ausweisNr = c.kunde_ausweis_nr || c.k_id_card || '--';
+            const ustId = c.kunde_ust_id || c.k_tax_id || '';
+            const typ = c.kunde_typ || c.k_type || 'Privat';
+            const createdAt = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '--';
+            
+            document.getElementById('detContent').innerHTML = `
+                <div class="detail-row"><span class="detail-label">Kundentyp</span>${typ}</div>
+                <div class="detail-row"><span class="detail-label">Adresse</span>${strasse} ${hausnummer}, ${plz} ${stadt}, ${land}</div>
+                <div class="detail-row"><span class="detail-label">Ausweis-Nr</span>${ausweisNr}</div>
+                ${ustId ? `<div class="detail-row"><span class="detail-label">Steuer-Nr / Ust.Id</span>${ustId}</div>` : ''}
+                <div class="detail-row"><span class="detail-label">Erstellt am</span>${createdAt}</div>
+            `;
+        }
+
+        function editCust(id) {
+            window.location.href = `neu.html?edit=${id}&type=kunde`;
+        }
+
+        function sendToOperation(customerId) {
+            window.location.href = `operation.html?customer=${customerId}`;
+        }
+
+        async function deleteCustomer(customerId) {
+            if (!confirm('Möchten Sie diesen Kunden wirklich löschen? Alle zugehörigen Daten werden ebenfalls gelöscht.')) {
+                return;
+            }
+
+            try {
+                // Prüfen, ob der Kunde in Rechnungen verwendet wird (optional – könnte auch einfach gelöscht werden)
+                const rechnungenSnap = await db.ref('rechnungen')
+                    .orderByChild('kundeId')
+                    .equalTo(customerId)
+                    .once('value');
+                if (rechnungenSnap.exists()) {
+                    if (!confirm('Dieser Kunde hat bereits Rechnungen. Trotzdem löschen? (Die Rechnungen bleiben erhalten, aber der Kunde wird aus der Liste entfernt)')) {
+                        return;
+                    }
+                }
+
+                // Kunden löschen
+                await db.ref(`kunden/${customerId}`).remove();
+                alert('Kunde erfolgreich gelöscht!');
+                selectedId = null;
+                // Die Liste aktualisiert sich automatisch durch den Firebase-Listener
+            } catch (e) {
+                alert('Fehler beim Löschen: ' + e.message);
+            }
+        }
+
+        function closeOverlay() {
+            document.getElementById('custOverlay').style.display = 'none';
+        }
+
+        // Beim Laden starten
+        window.onload = fetchCustomers;
+    </script>
+</body>
 </html>
