@@ -777,4 +777,783 @@
         window.saveEdit = saveEdit;
     </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Management - Kasse</title>
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-body: #eff3f6;
+            --nav-bg: #1a1a1a;
+            --accent-green: #27ae60;
+            --accent-blue: #2980b9;
+            --danger-red: #e74c3c;
+            --warning-orange: #f39c12;
+            --text-dark: #2d3436;
+            --card-white: #ffffff;
+            --border-light: #dfe6e9;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { 
+            margin: 0; 
+            background: var(--bg-body); 
+            color: var(--text-dark);
+            padding-top: 60px;
+        }
+
+        /* Navbar - einheitlich mit allen Seiten */
+        #navbar {
+            background: var(--nav-bg);
+            height: 50px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .brand { 
+            font-weight: bold; 
+            color: var(--accent-green); 
+            margin-right: 40px; 
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        .nav-links { display: flex; list-style: none; margin: 0; padding: 0; }
+        .nav-item { 
+            margin: 0 20px; 
+            cursor: pointer; 
+            color: #ccc; 
+            font-size: 15px; 
+            transition: 0.3s; 
+            text-decoration: none; 
+        }
+        .nav-item:hover, .nav-item.active { color: var(--accent-green); }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 0 25px;
+        }
+
+        /* Karte für Kontostand */
+        .balance-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .balance-card {
+            background: var(--card-white);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            text-align: center;
+            border-top: 4px solid var(--accent-blue);
+        }
+        .balance-card .label {
+            font-size: 14px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .balance-card .value {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text-dark);
+        }
+        .balance-card.cash .value { color: var(--accent-green); }
+        .balance-card.bank .value { color: var(--accent-blue); }
+
+        /* Eingabebereich */
+        .input-card {
+            background: var(--card-white);
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 30px;
+        }
+        .input-row {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .input-group {
+            flex: 1;
+            min-width: 150px;
+            position: relative;
+        }
+        .input-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1.5px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: 0.2s;
+        }
+        .input-group input:focus {
+            border-color: var(--accent-green);
+        }
+        .btn-add {
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+        .btn-add:hover {
+            background: #219150;
+        }
+
+        /* Autocomplete für Vorlagen */
+        .autocomplete-items {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 0 8px 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        }
+        .autocomplete-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .autocomplete-item:hover {
+            background: #f8f9fa;
+        }
+
+        /* Filterbereich */
+        .filter-section {
+            background: var(--card-white);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .filter-group label {
+            font-size: 13px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+        .filter-group select, .filter-group input {
+            padding: 8px 12px;
+            border: 1.5px solid var(--border-light);
+            border-radius: 6px;
+            outline: none;
+        }
+        .btn-filter {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-export {
+            background: var(--warning-orange);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Tabelle */
+        .table-container {
+            background: var(--card-white);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 15px 10px;
+            background: #f8f9fa;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #7f8c8d;
+            border-bottom: 2px solid #eee;
+        }
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .amount-positive { color: var(--accent-green); font-weight: bold; }
+        .amount-negative { color: var(--danger-red); font-weight: bold; }
+        .method-badge {
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            background: #f0f0f0;
+            display: inline-block;
+        }
+        .method-cash { background: #e8f5e9; color: #2e7d32; }
+        .method-bank { background: #e3f2fd; color: #1565c0; }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-icon {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            color: #7f8c8d;
+            padding: 5px;
+        }
+        .btn-icon:hover {
+            color: var(--accent-blue);
+        }
+        .btn-icon.delete:hover {
+            color: var(--danger-red);
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        /* Modal für Bearbeiten */
+        .modal-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 6000; backdrop-filter: blur(3px);
+        }
+        .modal-window { 
+            background: white; width: 500px; border-radius: 15px; padding: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); 
+            animation: zoomIn 0.2s ease-out; 
+        }
+        .modal-window h3 { margin-top:0; border-bottom: 2px solid var(--accent-blue); padding-bottom: 10px; }
+
+        @media print {
+            .no-print, #navbar, .balance-cards, .input-card, .filter-section, .btn-export, .action-buttons {
+                display: none !important;
+            }
+            .table-container {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+
+        @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <!-- Navbar (wie in allen Seiten) -->
+    <nav id="navbar">
+        <div class="brand">AUTO MANAGEMENT</div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-item active">Home</a>
+            <a href="neu.html" class="nav-item">Neu</a>
+            <a href="lager.html" class="nav-item">Mein Lager</a>
+            <a href="kunden.html" class="nav-item">Kundenliste</a>
+            <a href="rechnung.html" class="nav-item">Rechnungsliste</a>
+            <a href="operation.html" class="nav-item">Operationen</a>
+            <a href="kasse.html" class="nav-item">Kasse</a>
+            <a href="settings.html" class="nav-item">Einstellungen</a>
+        </div>
+    </nav>
+
+
+    <div class="main-container">
+        <!-- Kontostand-Karten -->
+        <div class="balance-cards no-print">
+            <div class="balance-card cash">
+                <div class="label"><i class="fas fa-money-bill-wave"></i> Kasse (Bar)</div>
+                <div class="value" id="cashBalance">0,00 €</div>
+            </div>
+            <div class="balance-card bank">
+                <div class="label"><i class="fas fa-university"></i> Bank</div>
+                <div class="value" id="bankBalance">0,00 €</div>
+            </div>
+            <div class="balance-card">
+                <div class="label"><i class="fas fa-coins"></i> Gesamt</div>
+                <div class="value" id="totalBalance">0,00 €</div>
+            </div>
+        </div>
+
+        <!-- Eingabebereich -->
+        <div class="input-card no-print">
+            <h3 style="margin-top:0; margin-bottom:20px;"><i class="fas fa-plus-circle"></i> Neue Buchung</h3>
+            <div class="input-row">
+                <div class="input-group" style="flex:2;">
+                    <label>Beschreibung / Grund</label>
+                    <input type="text" id="beschreibungInput" placeholder="z.B. Büromaterial, Tanken, Verkauf..." autocomplete="off">
+                    <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
+                </div>
+                <div class="input-group">
+                    <label>Betrag (€)</label>
+                    <input type="number" id="betragInput" step="0.01" placeholder="0,00">
+                </div>
+                <div class="input-group">
+                    <label>Datum</label>
+                    <input type="date" id="datumInput">
+                </div>
+                <div class="input-group">
+                    <label>Typ</label>
+                    <select id="typSelect">
+                        <option value="+">Einnahme (+)</option>
+                        <option value="-">Ausgabe (-)</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Konto</label>
+                    <select id="kontoSelect">
+                        <option value="cash">Kasse (Bar)</option>
+                        <option value="bank">Bank</option>
+                    </select>
+                </div>
+                <button class="btn-add" onclick="addBuchung()"><i class="fas fa-save"></i> Hinzufügen</button>
+            </div>
+            <div style="margin-top:10px; font-size:12px; color:#999;">
+                <i class="fas fa-info-circle"></i> Tipp: Geben Sie einen Text ein, um vorhandene Vorlagen zu sehen.
+            </div>
+        </div>
+
+        <!-- Filterbereich -->
+        <div class="filter-section no-print">
+            <div class="filter-group">
+                <label><i class="fas fa-calendar-alt"></i> Monat/Jahr</label>
+                <select id="monthFilter">
+                    <option value="all">Alle</option>
+                    <option value="01">Januar</option>
+                    <option value="02">Februar</option>
+                    <option value="03">März</option>
+                    <option value="04">April</option>
+                    <option value="05">Mai</option>
+                    <option value="06">Juni</option>
+                    <option value="07">Juli</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">Oktober</option>
+                    <option value="11">November</option>
+                    <option value="12">Dezember</option>
+                </select>
+                <select id="yearFilter">
+                    <!-- wird per JS befüllt -->
+                </select>
+            </div>
+            <div class="filter-group">
+                <label><i class="fas fa-filter"></i> Konto</label>
+                <select id="kontoFilter">
+                    <option value="all">Alle</option>
+                    <option value="cash">Kasse</option>
+                    <option value="bank">Bank</option>
+                </select>
+            </div>
+            <button class="btn-filter" onclick="applyFilters()"><i class="fas fa-search"></i> Anzeigen</button>
+            <button class="btn-export" onclick="exportPDF()"><i class="fas fa-file-pdf"></i> PDF exportieren</button>
+        </div>
+
+        <!-- Tabelle der Buchungen -->
+        <div class="table-container">
+            <table id="buchungenTable">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Beschreibung</th>
+                        <th>Betrag</th>
+                        <th>Konto</th>
+                        <th>Quelle</th>
+                        <th class="no-print">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <tr><td colspan="6" class="no-data">Keine Buchungen vorhanden.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal für Bearbeiten -->
+    <div id="editModal" class="modal-overlay no-print">
+        <div class="modal-window">
+            <h3><i class="fas fa-edit"></i> Buchung bearbeiten</h3>
+            <div class="payment-form">
+                <label>Beschreibung</label>
+                <input type="text" id="editBeschreibung" placeholder="Beschreibung">
+                
+                <label>Betrag (€)</label>
+                <input type="number" id="editBetrag" step="0.01" placeholder="0.00">
+                
+                <label>Datum</label>
+                <input type="date" id="editDatum">
+                
+                <label>Typ</label>
+                <select id="editTyp">
+                    <option value="+">Einnahme (+)</option>
+                    <option value="-">Ausgabe (-)</option>
+                </select>
+                
+                <label>Konto</label>
+                <select id="editKonto">
+                    <option value="cash">Kasse (Bar)</option>
+                    <option value="bank">Bank</option>
+                </select>
+            </div>
+            <div style="margin-top:25px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeEditModal()" style="padding:10px 20px; border:none; border-radius:8px; cursor:pointer;">Abbrechen</button>
+                <button onclick="saveEdit()" style="padding:10px 25px; background:var(--accent-green); color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBYPa1h-VytnKtdaqysaexhwZmFXNKytBo",
+            authDomain: "autoohandel-bf5f2.firebaseapp.com",
+            databaseURL: "https://autoohandel-bf5f2-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "autoohandel-bf5f2",
+            storageBucket: "autoohandel-bf5f2.firebasestorage.app",
+            messagingSenderId: "25702608206",
+            appId: "1:25702608206:web:b1b262e51155591015821f"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Globale Variablen
+        let allTransactions = [];
+        let vorlagen = []; // für Autocomplete
+        let currentEditId = null;
+
+        // Elemente
+        const beschreibungInput = document.getElementById('beschreibungInput');
+        const betragInput = document.getElementById('betragInput');
+        const datumInput = document.getElementById('datumInput');
+        const typSelect = document.getElementById('typSelect');
+        const kontoSelect = document.getElementById('kontoSelect');
+        const autocompleteList = document.getElementById('autocompleteList');
+        const monthFilter = document.getElementById('monthFilter');
+        const yearFilter = document.getElementById('yearFilter');
+        const kontoFilter = document.getElementById('kontoFilter');
+
+        // Initialisierung
+        document.addEventListener('DOMContentLoaded', () => {
+            // Datum auf heute setzen
+            const today = new Date().toISOString().split('T')[0];
+            datumInput.value = today;
+
+            // Jahr-Filter befüllen (letzte 5 Jahre)
+            const currentYear = new Date().getFullYear();
+            for (let y = currentYear - 5; y <= currentYear + 1; y++) {
+                const option = document.createElement('option');
+                option.value = y;
+                option.textContent = y;
+                yearFilter.appendChild(option);
+            }
+            yearFilter.value = currentYear;
+
+            // Vorlagen laden
+            loadVorlagen();
+            // Transaktionen laden
+            loadTransactions();
+        });
+
+        // Vorlagen aus Firebase (settings/texts/kasse)
+        async function loadVorlagen() {
+            const snap = await db.ref('settings/texts/kasse').once('value');
+            const data = snap.val();
+            vorlagen = [];
+            if (data) {
+                for (let id in data) {
+                    vorlagen.push({
+                        id: id,
+                        text: data[id].text,
+                        typ: data[id].typ || 'Ausgabe' // optional
+                    });
+                }
+            }
+        }
+
+        // Autocomplete für Beschreibung
+        beschreibungInput.addEventListener('input', function() {
+            const input = this.value.toLowerCase();
+            if (input.length < 1) {
+                autocompleteList.style.display = 'none';
+                return;
+            }
+            const matches = vorlagen.filter(v => v.text.toLowerCase().includes(input));
+            if (matches.length === 0) {
+                autocompleteList.style.display = 'none';
+                return;
+            }
+            autocompleteList.innerHTML = '';
+            matches.forEach(v => {
+                const div = document.createElement('div');
+                div.className = 'autocomplete-item';
+                div.innerText = v.text;
+                div.onclick = () => {
+                    beschreibungInput.value = v.text;
+                    autocompleteList.style.display = 'none';
+                };
+                autocompleteList.appendChild(div);
+            });
+            autocompleteList.style.display = 'block';
+        });
+
+        // Klick außerhalb schließt Autocomplete
+        document.addEventListener('click', function(e) {
+            if (!beschreibungInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+                autocompleteList.style.display = 'none';
+            }
+        });
+
+        // Neue Buchung hinzufügen
+        async function addBuchung() {
+            const beschreibung = beschreibungInput.value.trim();
+            const betrag = parseFloat(betragInput.value);
+            const datum = datumInput.value;
+            const typ = typSelect.value; // '+' oder '-'
+            const konto = kontoSelect.value; // 'cash' oder 'bank'
+
+            if (!beschreibung || isNaN(betrag) || betrag <= 0 || !datum) {
+                alert('Bitte füllen Sie alle Felder korrekt aus.');
+                return;
+            }
+
+            const neuerBetrag = typ === '+' ? betrag : -betrag;
+
+            const neueBuchung = {
+                beschreibung: beschreibung,
+                betrag: neuerBetrag,
+                datum: datum,
+                methode: konto,
+                typ: 'manuell',
+                timestamp: Date.now()
+            };
+
+            try {
+                await db.ref('kasse/transaktionen').push(neueBuchung);
+                beschreibungInput.value = '';
+                betragInput.value = '';
+                // Datum bleibt auf heute
+                loadTransactions(); // neu laden
+            } catch (e) {
+                alert('Fehler beim Speichern: ' + e.message);
+            }
+        }
+
+        // Transaktionen laden
+        function loadTransactions() {
+            db.ref('kasse/transaktionen').on('value', snapshot => {
+                const data = snapshot.val();
+                allTransactions = [];
+                if (data) {
+                    for (let id in data) {
+                        allTransactions.push({ id, ...data[id] });
+                    }
+                }
+                applyFilters();
+            });
+        }
+
+        // Filter anwenden
+        function applyFilters() {
+            const month = monthFilter.value;
+            const year = yearFilter.value;
+            const konto = kontoFilter.value;
+
+            let filtered = allTransactions.filter(t => {
+                // Datum filter
+                if (month !== 'all' || year !== 'all') {
+                    const tDate = new Date(t.datum);
+                    const tMonth = (tDate.getMonth() + 1).toString().padStart(2, '0');
+                    const tYear = tDate.getFullYear().toString();
+                    if (year !== 'all' && tYear !== year) return false;
+                    if (month !== 'all' && tMonth !== month) return false;
+                }
+                // Konto filter
+                if (konto !== 'all' && t.methode !== konto) return false;
+                return true;
+            });
+
+            // Sortieren nach Datum (neueste zuerst)
+            filtered.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+
+            renderTable(filtered);
+            updateBalances();
+        }
+
+        // Tabelle rendern
+        function renderTable(transactions) {
+            const tbody = document.getElementById('tableBody');
+            if (transactions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-data">Keine Buchungen gefunden.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            transactions.forEach(t => {
+                const betragAbs = Math.abs(t.betrag).toFixed(2).replace('.', ',');
+                const betragClass = t.betrag >= 0 ? 'amount-positive' : 'amount-negative';
+                const betragAnzeige = (t.betrag >= 0 ? '+' : '-') + betragAbs + ' €';
+                const methodeClass = t.methode === 'cash' ? 'method-cash' : 'method-bank';
+                const methodeText = t.methode === 'cash' ? 'Kasse' : 'Bank';
+                const quelle = t.typ || (t.rechnungId ? 'Rechnung' : (t.fahrzeugId ? 'Fahrzeug' : 'Manuell'));
+
+                html += `<tr>
+                    <td>${new Date(t.datum).toLocaleDateString('de-DE')}</td>
+                    <td>${t.beschreibung}</td>
+                    <td class="${betragClass}">${betragAnzeige}</td>
+                    <td><span class="method-badge ${methodeClass}">${methodeText}</span></td>
+                    <td>${quelle}</td>
+                    <td class="no-print">
+                        <div class="action-buttons">
+                            <button class="btn-icon" onclick="editBuchung('${t.id}')" title="Bearbeiten"><i class="fas fa-edit"></i></button>
+                            <button class="btn-icon delete" onclick="deleteBuchung('${t.id}')" title="Löschen"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // Salden aktualisieren
+        function updateBalances() {
+            let cashTotal = 0, bankTotal = 0;
+            allTransactions.forEach(t => {
+                if (t.methode === 'cash') cashTotal += t.betrag;
+                else if (t.methode === 'bank') bankTotal += t.betrag;
+            });
+
+            document.getElementById('cashBalance').innerText = cashTotal.toFixed(2).replace('.', ',') + ' €';
+            document.getElementById('bankBalance').innerText = bankTotal.toFixed(2).replace('.', ',') + ' €';
+            document.getElementById('totalBalance').innerText = (cashTotal + bankTotal).toFixed(2).replace('.', ',') + ' €';
+        }
+
+        // Export als PDF (Drucken)
+        function exportPDF() {
+            window.print();
+        }
+
+        // Bearbeiten
+        function editBuchung(id) {
+            const transaction = allTransactions.find(t => t.id === id);
+            if (!transaction) return;
+
+            currentEditId = id;
+            document.getElementById('editBeschreibung').value = transaction.beschreibung;
+            document.getElementById('editBetrag').value = Math.abs(transaction.betrag);
+            document.getElementById('editDatum').value = transaction.datum;
+            document.getElementById('editTyp').value = transaction.betrag >= 0 ? '+' : '-';
+            document.getElementById('editKonto').value = transaction.methode;
+
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentEditId = null;
+        }
+
+        async function saveEdit() {
+            if (!currentEditId) return;
+
+            const beschreibung = document.getElementById('editBeschreibung').value.trim();
+            const betrag = parseFloat(document.getElementById('editBetrag').value);
+            const datum = document.getElementById('editDatum').value;
+            const typ = document.getElementById('editTyp').value;
+            const konto = document.getElementById('editKonto').value;
+
+            if (!beschreibung || isNaN(betrag) || betrag <= 0 || !datum) {
+                alert('Bitte alle Felder korrekt ausfüllen.');
+                return;
+            }
+
+            const neuerBetrag = typ === '+' ? betrag : -betrag;
+
+            try {
+                await db.ref(`kasse/transaktionen/${currentEditId}`).update({
+                    beschreibung: beschreibung,
+                    betrag: neuerBetrag,
+                    datum: datum,
+                    methode: konto,
+                    lastUpdate: Date.now()
+                });
+                closeEditModal();
+                // loadTransactions wird automatisch durch den Listener aktualisiert
+            } catch (e) {
+                alert('Fehler beim Speichern: ' + e.message);
+            }
+        }
+
+        // Löschen
+        async function deleteBuchung(id) {
+            if (!confirm('Wirklich löschen?')) return;
+            try {
+                await db.ref(`kasse/transaktionen/${id}`).remove();
+            } catch (e) {
+                alert('Fehler beim Löschen: ' + e.message);
+            }
+        }
+
+        // Globale Funktionen für Buttons
+        window.addBuchung = addBuchung;
+        window.applyFilters = applyFilters;
+        window.exportPDF = exportPDF;
+        window.editBuchung = editBuchung;
+        window.deleteBuchung = deleteBuchung;
+        window.closeEditModal = closeEditModal;
+        window.saveEdit = saveEdit;
+    </script>
+</body>
 </html>
