@@ -1067,28 +1067,310 @@ async function previewInvoice() {
         return;
     }
     
-    // هنا يمكنك إضافة الكود الحقيقي للمعاينة
-    // مثلاً: فتح نافذة جديدة تعرض الفاتورة كملف PDF أو كصفحة طباعة
+    const invoice = currentSelectedInvoice;
+    const payments = allPayments.filter(p => p.invoiceId === invoice.id);
+    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const restAmount = (invoice.gesamtBrutto || 0) - totalPaid;
     
-    // مؤقتاً: عرض البيانات في Console للمساعدة في التطوير
-    console.log('📄 Preview Rechnung:', currentSelectedInvoice);
+    // تنسيق التاريخ
+    const invoiceDate = new Date(invoice.datum).toLocaleDateString('de-DE');
+    const customerName = invoice.kundeName || getCustomerName(invoice);
     
-    // يمكنك فتح نافذة طباعة تحتوي على الفاتورة
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    // الحصول على بيانات المركبة
+    const firstVehicle = invoice.fahrzeuge && invoice.fahrzeuge[0] ? invoice.fahrzeuge[0] : null;
+    const vehicleInfo = firstVehicle ? 
+        `<tr>
+            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Fahrzeug:</strong></td>
+            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.marke || ''} ${firstVehicle.modell || ''} (${firstVehicle.baujahr || ''})</td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>VIN / FIN:</strong></td>
+            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.vin || firstVehicle.fin || '—'}</td>
+        </tr>
+        <tr>
+            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Kilometerstand:</strong></td>
+            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.km ? firstVehicle.km.toLocaleString() + ' km' : '—'}</td>
+        </tr>` : 
+        '<tr><td colspan="2" style="padding:8px;">Kein Fahrzeug zugeordnet</td></tr>';
+    
+    // تنسيق المبلغ (لون أحمر للسالب)
+    const amountFormatted = (invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',') + ' €';
+    const amountColor = (invoice.gesamtBrutto || 0) < 0 ? '#e74c3c' : '#27ae60';
+    
+    // حالة الفاتورة
+    let statusText = 'Offen';
+    let statusColor = '#f39c12';
+    if (invoice.status === 'bezahlt') {
+        statusText = 'Bezahlt';
+        statusColor = '#27ae60';
+    } else if (invoice.status === 'teilbezahlt') {
+        statusText = 'Teilbezahlt';
+        statusColor = '#f39c12';
+    } else if (invoice.status === 'storniert' || invoice.typ === 'storno') {
+        statusText = 'Storniert';
+        statusColor = '#e74c3c';
+    }
+    
+    // إنشاء نافذة المعاينة
+    const previewWindow = window.open('', '_blank');
+    previewWindow.document.write(`
+        <!DOCTYPE html>
         <html>
-        <head><title>Rechnung ${currentSelectedInvoice.nr}</title></head>
+        <head>
+            <meta charset="UTF-8">
+            <title>Rechnung ${invoice.nr} - Vorschau</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: #f5f5f5;
+                    padding: 40px 20px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                }
+                .invoice-container {
+                    max-width: 800px;
+                    width: 100%;
+                    background: white;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                    overflow: hidden;
+                }
+                .invoice-header {
+                    background: linear-gradient(135deg, #1a1a1a 0%, #2d3436 100%);
+                    color: white;
+                    padding: 30px;
+                    text-align: center;
+                }
+                .invoice-header h1 {
+                    font-size: 28px;
+                    margin-bottom: 5px;
+                }
+                .invoice-header .invoice-nr {
+                    font-size: 14px;
+                    opacity: 0.8;
+                    margin-top: 5px;
+                }
+                .invoice-status {
+                    display: inline-block;
+                    padding: 5px 15px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-top: 10px;
+                    background: ${statusColor};
+                    color: white;
+                }
+                .invoice-body {
+                    padding: 30px;
+                }
+                .info-section {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 20px;
+                    margin-bottom: 30px;
+                    padding-bottom: 20px;
+                    border-bottom: 2px solid #eee;
+                }
+                .info-box {
+                    background: #f8f9fa;
+                    padding: 15px;
+                    border-radius: 8px;
+                }
+                .info-box h3 {
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 10px;
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }
+                .info-box p {
+                    margin: 5px 0;
+                    font-size: 14px;
+                }
+                .info-box .name {
+                    font-weight: bold;
+                    font-size: 16px;
+                    color: #2d3436;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 20px 0;
+                }
+                th {
+                    background: #f8f9fa;
+                    padding: 12px;
+                    text-align: left;
+                    font-weight: 600;
+                    border-bottom: 2px solid #ddd;
+                }
+                td {
+                    padding: 10px 12px;
+                    border-bottom: 1px solid #eee;
+                }
+                .amount-row {
+                    background: #f8f9fa;
+                    font-weight: bold;
+                }
+                .amount-row td {
+                    padding: 15px 12px;
+                    border-bottom: none;
+                }
+                .total-amount {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: ${amountColor};
+                    text-align: right;
+                }
+                .payment-section {
+                    margin-top: 30px;
+                    padding-top: 20px;
+                    border-top: 2px solid #eee;
+                }
+                .payment-section h3 {
+                    font-size: 16px;
+                    margin-bottom: 15px;
+                    color: #2d3436;
+                }
+                .payment-item {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                .rest-amount {
+                    margin-top: 15px;
+                    padding: 12px;
+                    background: #fff3cd;
+                    border-radius: 8px;
+                    text-align: center;
+                    font-weight: bold;
+                    color: #856404;
+                }
+                .invoice-footer {
+                    background: #f8f9fa;
+                    padding: 20px 30px;
+                    text-align: center;
+                    font-size: 12px;
+                    color: #999;
+                    border-top: 1px solid #eee;
+                }
+                .print-btn {
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    background: #27ae60;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 30px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: bold;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    transition: all 0.3s;
+                    z-index: 1000;
+                }
+                .print-btn:hover {
+                    background: #219a52;
+                    transform: scale(1.05);
+                }
+                @media print {
+                    body {
+                        background: white;
+                        padding: 0;
+                    }
+                    .print-btn {
+                        display: none;
+                    }
+                    .invoice-container {
+                        box-shadow: none;
+                        border-radius: 0;
+                    }
+                }
+            </style>
+        </head>
         <body>
-            <h1>Rechnung ${currentSelectedInvoice.nr}</h1>
-            <p>Kunde: ${currentSelectedInvoice.kundeName || 'Unbekannt'}</p>
-            <p>Datum: ${new Date(currentSelectedInvoice.datum).toLocaleDateString('de-DE')}</p>
-            <p>Betrag: ${(currentSelectedInvoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</p>
-            <hr>
-            <p><small>Vorschau-Funktion - Detaillierte PDF-Ansicht folgt später.</small></p>
+            <button class="print-btn" onclick="window.print()">
+                <i class="fas fa-print"></i> Drucken / PDF
+            </button>
+            <div class="invoice-container">
+                <div class="invoice-header">
+                    <h1>AUTO MANAGEMENT</h1>
+                    <div class="invoice-nr">Rechnung Nr. ${invoice.nr}</div>
+                    <div class="invoice-status">${statusText}</div>
+                </div>
+                <div class="invoice-body">
+                    <div class="info-section">
+                        <div class="info-box">
+                            <h3>Rechnungsdetails</h3>
+                            <p><strong>Datum:</strong> ${invoiceDate}</p>
+                            <p><strong>Rechnungstyp:</strong> ${getTypeLabel(invoice.typ)}</p>
+                            <p><strong>Rechnungs-ID:</strong> ${invoice.id.slice(-8)}</p>
+                        </div>
+                        <div class="info-box">
+                            <h3>Kundeninformationen</h3>
+                            <p class="name">${escapeHtml(customerName)}</p>
+                            ${invoice.kunde?.strasse ? `<p>${escapeHtml(invoice.kunde.strasse)} ${escapeHtml(invoice.kunde.hausnummer || '')}</p>` : ''}
+                            ${invoice.kunde?.plz ? `<p>${invoice.kunde.plz} ${escapeHtml(invoice.kunde.stadt || '')}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <table>
+                        <thead>
+                            <tr><th>Beschreibung</th><th>Details</th></tr>
+                        </thead>
+                        <tbody>
+                            ${vehicleInfo}
+                            <tr>
+                                <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Rechnungsbetrag:</strong></td>
+                                <td style="padding:8px; border-bottom:1px solid #ddd; font-size:18px; font-weight:bold; color:${amountColor};">${amountFormatted}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    
+                    <div class="payment-section">
+                        <h3>Zahlungshistorie</h3>
+                        ${payments.length === 0 ? '<p style="color:#999;">Keine Zahlungen erfasst.</p>' : 
+                            payments.map(p => `
+                                <div class="payment-item">
+                                    <span>${new Date(p.date).toLocaleDateString('de-DE')} - ${p.method}</span>
+                                    <span style="font-weight:bold; color:#27ae60;">${p.amount.toFixed(2).replace('.', ',')} €</span>
+                                </div>
+                            `).join('')
+                        }
+                        ${restAmount > 0 ? `<div class="rest-amount">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</div>` : 
+                          restAmount < 0 ? `<div class="rest-amount" style="background:#e8f5e9; color:#27ae60;">Überzahlung: ${Math.abs(restAmount).toFixed(2).replace('.', ',')} €</div>` : 
+                          `<div class="rest-amount" style="background:#e8f5e9; color:#27ae60;">✓ Vollständig bezahlt</div>`}
+                    </div>
+                </div>
+                <div class="invoice-footer">
+                    <p>Auto Management System - Generiert am ${new Date().toLocaleDateString('de-DE')}</p>
+                    <p>Diese Vorschau ist nur zu Informationszwecken.</p>
+                </div>
+            </div>
         </body>
         </html>
     `);
-    printWindow.document.close();
+    previewWindow.document.close();
+}
+
+// دالة مساعدة للحصول على نص نوع الفاتورة
+function getTypeLabel(typ) {
+    switch(typ) {
+        case 'rechnung': return 'Standardrechnung';
+        case 'eu': return 'EU-Export Rechnung';
+        case 'export': return 'Export Rechnung';
+        case 'storno': return 'Stornorechnung';
+        default: return 'Rechnung';
+    }
 }
 
         function openPaymentModal() {
