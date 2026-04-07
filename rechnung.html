@@ -979,82 +979,115 @@
         }
 
         // ======================== وظيفة Storno المُفعَّلة بالكامل ========================
-        async function stornoInvoice() {
-            if (!currentSelectedInvoice) {
-                alert('Keine Rechnung ausgewählt.');
-                return;
+async function stornoInvoice() {
+    if (!currentSelectedInvoice) {
+        alert('Keine Rechnung ausgewählt.');
+        return;
+    }
+    
+    if (currentSelectedInvoice.status === 'storniert') {
+        alert('Diese Rechnung wurde bereits storniert.');
+        return;
+    }
+    
+    if (currentSelectedInvoice.typ === 'storno') {
+        alert('Eine Stornorechnung kann nicht storniert werden.');
+        return;
+    }
+    
+    const confirmStorno = confirm(`Möchten Sie die Rechnung ${currentSelectedInvoice.nr} wirklich stornieren?`);
+    if (!confirmStorno) return;
+    
+    try {
+        // 1. Status der Originalrechnung aktualisieren
+        await db.ref(`rechnungen/${currentSelectedId}`).update({
+            status: 'storniert',
+            storniertAm: new Date().toISOString()
+        });
+        
+        // 2. Stornorechnung als neuen Eintrag erstellen - OHNE das 'id' Feld!
+        const stornoRechnung = {
+            nr: `${currentSelectedInvoice.nr}-STORNO`,
+            typ: 'storno',
+            originalRechnungId: currentSelectedId,
+            gesamtBrutto: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+            status: 'bezahlt',
+            stornoDatum: new Date().toISOString(),
+            datum: new Date().toISOString(),
+            // فقط انسخ الحقول الآمنة
+            kunde: currentSelectedInvoice.kunde || {},
+            kundeName: currentSelectedInvoice.kundeName || getCustomerName(currentSelectedInvoice),
+            fahrzeuge: currentSelectedInvoice.fahrzeuge || []
+        };
+        
+        // إضافة أي حقول أخرى موجودة بشكل آمن (باستثناء id)
+        const safeFields = ['rechnungsnummer', 'mwst', 'steuer', 'zahlungsziel', 'kommentar'];
+        safeFields.forEach(field => {
+            if (currentSelectedInvoice[field] !== undefined) {
+                stornoRechnung[field] = currentSelectedInvoice[field];
             }
-            
-            if (currentSelectedInvoice.status === 'storniert') {
-                alert('Diese Rechnung wurde bereits storniert.');
-                return;
-            }
-            
-            if (currentSelectedInvoice.typ === 'storno') {
-                alert('Eine Stornorechnung kann nicht storniert werden.');
-                return;
-            }
-            
-            const confirmStorno = confirm(`Möchten Sie die Rechnung ${currentSelectedInvoice.nr} wirklich stornieren?`);
-            if (!confirmStorno) return;
-            
-            try {
-                // 1. Status der Originalrechnung aktualisieren
-                await db.ref(`rechnungen/${currentSelectedId}`).update({
-                    status: 'storniert',
-                    storniertAm: new Date().toISOString()
-                });
-                
-                // 2. Stornorechnung als neuen Eintrag erstellen
-                const stornoRechnung = {
-                    ...currentSelectedInvoice,
-                    id: undefined, // Firebase generiert neue ID
-                    nr: `${currentSelectedInvoice.nr}-STORNO`,
-                    typ: 'storno',
-                    originalRechnungId: currentSelectedId,
-                    gesamtBrutto: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
-                    status: 'bezahlt',
-                    stornoDatum: new Date().toISOString(),
-                    datum: new Date().toISOString()
-                };
-                
-                await db.ref('rechnungen').push(stornoRechnung);
-                
-                // 3. Eintrag in der Kasse für die Stornierung
-                await db.ref('kasse/transaktionen').push({
-                    beschreibung: `Storno Rechnung ${currentSelectedInvoice.nr}`,
-                    betrag: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
-                    methode: 'storno',
-                    datum: new Date().toISOString().split('T')[0],
-                    typ: 'ausgabe',
-                    rechnungId: currentSelectedId
-                });
-                
-                alert(`Rechnung ${currentSelectedInvoice.nr} wurde erfolgreich storniert.`);
-                
-                // تحديث القائمة
-                await loadInvoices();
-                
-                // إخفاء شريط الأدوات
-                const toolbar = document.getElementById('action-toolbar');
-                if(toolbar) toolbar.style.display = 'none';
-                currentSelectedId = null;
-                currentSelectedInvoice = null;
-                
-            } catch (error) {
-                console.error('Fehler bei Storno:', error);
-                alert('Fehler beim Stornieren: ' + error.message);
-            }
-        }
+        });
+        
+        // استخدام push لإنشاء ID جديد تلقائياً
+        await db.ref('rechnungen').push(stornoRechnung);
+        
+        // 3. Eintrag in der Kasse für die Stornierung
+        await db.ref('kasse/transaktionen').push({
+            beschreibung: `Storno Rechnung ${currentSelectedInvoice.nr}`,
+            betrag: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+            methode: 'storno',
+            datum: new Date().toISOString().split('T')[0],
+            typ: 'ausgabe',
+            rechnungId: currentSelectedId
+        });
+        
+        alert(`Rechnung ${currentSelectedInvoice.nr} wurde erfolgreich storniert.`);
+        
+        // تحديث القائمة
+        await loadInvoices();
+        
+        // إخفاء شريط الأدوات
+        const toolbar = document.getElementById('action-toolbar');
+        if(toolbar) toolbar.style.display = 'none';
+        currentSelectedId = null;
+        currentSelectedInvoice = null;
+        
+    } catch (error) {
+        console.error('Fehler bei Storno:', error);
+        alert('Fehler beim Stornieren: ' + error.message);
+    }
+}
 
         // باقي الوظائف (Preview, Payment, Details) تبقى كما هي مع إضافة التحقق من وجود العناصر
-        async function previewInvoice() {
-            if (!currentSelectedInvoice) {
-                alert('Keine Rechnung ausgewählt.');
-                return;
-            }
-            alert('Preview-Funktion ist vollständig implementiert.');
-        }
+async function previewInvoice() {
+    if (!currentSelectedInvoice) {
+        alert('Keine Rechnung ausgewählt.');
+        return;
+    }
+    
+    // هنا يمكنك إضافة الكود الحقيقي للمعاينة
+    // مثلاً: فتح نافذة جديدة تعرض الفاتورة كملف PDF أو كصفحة طباعة
+    
+    // مؤقتاً: عرض البيانات في Console للمساعدة في التطوير
+    console.log('📄 Preview Rechnung:', currentSelectedInvoice);
+    
+    // يمكنك فتح نافذة طباعة تحتوي على الفاتورة
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+        <html>
+        <head><title>Rechnung ${currentSelectedInvoice.nr}</title></head>
+        <body>
+            <h1>Rechnung ${currentSelectedInvoice.nr}</h1>
+            <p>Kunde: ${currentSelectedInvoice.kundeName || 'Unbekannt'}</p>
+            <p>Datum: ${new Date(currentSelectedInvoice.datum).toLocaleDateString('de-DE')}</p>
+            <p>Betrag: ${(currentSelectedInvoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</p>
+            <hr>
+            <p><small>Vorschau-Funktion - Detaillierte PDF-Ansicht folgt später.</small></p>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
 
         function openPaymentModal() {
             if (!currentSelectedInvoice) return;
