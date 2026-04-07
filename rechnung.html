@@ -1101,12 +1101,15 @@ async function previewInvoice() {
     const netto = brutto / 1.19;
     const mwst = brutto - netto;
     
-    // نصوص الفاتورة من settings
+    // النصوص المتغيرة من صفحة settings
     const begruessungstext = defaultTexts.Begrüßungstexte || 'Vielen Dank für den gemeinsamen Geschäftsabschluss';
     const garantieText = defaultTexts.Garantie || 'Das Kaufobjekt wird in dem Zustand übernommen wie besichtigt und probe gefahren. Zum Zeitpunkt des Verkaufs weist das Fahrzeug keine sichtbaren Unfallschäden auf. Eine Unfallfreiheit sowie das Fehlen von Nachlackierungen oder vorangegangenen Instandsetzungen können jedoch nicht zugesichert werden.';
     const zusatzText = defaultTexts.Zusatz || 'Gewerblicher Verkauf';
     
-    // إنشاء HTML للفاتورة
+    // عنوان التاجر المختصر للسطر العلوي (Absender)
+    const absenderLine = `${dealerName} · ${dealerStreet} · ${dealerCity}`;
+    
+    // إنشاء HTML للفاتورة - مطابق تماماً للتنسيق الأصلي
     const invoiceHtml = `
         <!DOCTYPE html>
         <html>
@@ -1141,39 +1144,58 @@ async function previewInvoice() {
                     line-height: 1.4;
                     color: #2d3436;
                 }
-                /* رأس الفاتورة */
+                /* ===== رأس الفاتورة: لوجو على اليسار + معلومات التاجر على اليمين ===== */
                 .invoice-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 5mm;
+                }
+                .logo-area {
+                    width: 50mm;
+                    min-height: 20mm;
+                    background: #f0f0f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    font-size: 9pt;
+                    color: #999;
+                }
+                .logo-placeholder {
                     text-align: center;
-                    margin-bottom: 8mm;
-                    padding-bottom: 3mm;
-                    border-bottom: 1px solid #ccc;
+                }
+                .dealer-info {
+                    text-align: right;
+                    font-size: 9pt;
                 }
                 .dealer-name {
-                    font-size: 18pt;
+                    font-size: 14pt;
                     font-weight: bold;
                     color: #1a1a1a;
                 }
                 .dealer-address {
-                    font-size: 9pt;
-                    color: #555;
-                    margin: 2mm 0;
+                    margin: 2mm 0 1mm;
                 }
                 .dealer-contact {
-                    font-size: 8pt;
-                    color: #666;
-                    margin: 2mm 0;
+                    margin: 1mm 0;
                 }
                 .dealer-tax {
                     font-size: 7pt;
-                    color: #888;
-                    margin-top: 2mm;
+                    color: #666;
+                    margin-top: 1mm;
                 }
-                /* معلومات العميل */
+                /* ===== سطر Absender فوق العميل ===== */
+                .absender-line {
+                    font-size: 8pt;
+                    color: #555;
+                    margin: 3mm 0 5mm 0;
+                    padding-bottom: 2mm;
+                    border-bottom: 1px dashed #ccc;
+                }
+                /* ===== معلومات العميل ===== */
                 .customer-section {
-                    margin: 5mm 0;
-                    padding: 4mm;
-                    background: #f9f9f9;
-                    border-radius: 4px;
+                    margin: 4mm 0 6mm 0;
                 }
                 .customer-name {
                     font-weight: bold;
@@ -1182,8 +1204,14 @@ async function previewInvoice() {
                 .customer-details {
                     font-size: 9pt;
                     margin-top: 2mm;
+                    line-height: 1.4;
                 }
-                /* عنوان الفاتورة */
+                .customer-id {
+                    font-size: 8pt;
+                    color: #666;
+                    margin-top: 1mm;
+                }
+                /* ===== عنوان الفاتورة ===== */
                 .invoice-title {
                     margin: 6mm 0 3mm;
                 }
@@ -1202,7 +1230,7 @@ async function previewInvoice() {
                     padding: 2mm 0;
                     font-size: 9pt;
                 }
-                /* بيانات المركبة */
+                /* ===== بيانات المركبة ===== */
                 .vehicle-section {
                     margin: 5mm 0;
                     padding: 4mm;
@@ -1216,8 +1244,9 @@ async function previewInvoice() {
                 .vehicle-details {
                     font-size: 9pt;
                     margin-top: 2mm;
+                    line-height: 1.4;
                 }
-                /* المبلغ */
+                /* ===== المبلغ ===== */
                 .price-section {
                     margin: 5mm 0;
                     text-align: right;
@@ -1227,7 +1256,7 @@ async function previewInvoice() {
                     font-weight: bold;
                     color: #2d3436;
                 }
-                /* تفاصيل الضريبة */
+                /* ===== تفاصيل الضريبة ===== */
                 .tax-details {
                     margin: 5mm 0;
                     text-align: right;
@@ -1245,17 +1274,17 @@ async function previewInvoice() {
                     padding-top: 2mm;
                     border-top: 1px solid #ddd;
                 }
-                /* النصوص القانونية */
+                /* ===== النصوص القانونية ===== */
                 .legal-text {
                     margin: 6mm 0 4mm;
                     font-size: 7pt;
-                    color: #666;
+                    color: #555;
                     line-height: 1.3;
                 }
                 .legal-text p {
                     margin: 1.5mm 0;
                 }
-                /* التذييل (بنك ومعلومات الاتصال) */
+                /* ===== التذييل (بنك + اتصال) ===== */
                 .footer {
                     margin-top: 8mm;
                     padding-top: 4mm;
@@ -1263,7 +1292,7 @@ async function previewInvoice() {
                     display: flex;
                     justify-content: space-between;
                     font-size: 7pt;
-                    color: #666;
+                    color: #555;
                 }
                 .footer-bank {
                     flex: 1;
@@ -1275,11 +1304,8 @@ async function previewInvoice() {
                 .footer-contact p, .footer-bank p {
                     margin: 1mm 0;
                 }
-                .small-print {
-                    font-size: 6pt;
-                    color: #999;
-                    margin-top: 3mm;
-                    text-align: center;
+                .footer-bank strong, .footer-contact strong {
+                    font-size: 8pt;
                 }
                 @media print {
                     body {
@@ -1298,40 +1324,49 @@ async function previewInvoice() {
                         display: none;
                     }
                 }
-                .status-storniert {
-                    color: #e74c3c;
-                }
             </style>
         </head>
         <body>
             <div class="a4-doc">
-                <!-- رأس الفاتورة - معلومات التاجر -->
+                <!-- ===== رأس الفاتورة: لوجو على اليسار + معلومات التاجر على اليمين ===== -->
                 <div class="invoice-header">
-                    <div class="dealer-name">${dealerName}</div>
-                    <div class="dealer-address">${dealerStreet} | ${dealerCity}</div>
-                    <div class="dealer-contact">📞 ${dealerPhone} | 📧 ${dealerEmail}</div>
-                    <div class="dealer-tax">USt-IdNr: ${dealerUstId} | Steuer-Nr: ${dealerSteuer} | EORI: ${dealerEori}</div>
+                    <div class="logo-area">
+                        <div class="logo-placeholder">
+                            <i class="fas fa-car" style="font-size: 24px; color: #999;"></i><br>
+                            LOGO
+                        </div>
+                    </div>
+                    <div class="dealer-info">
+                        <div class="dealer-name">${dealerName}</div>
+                        <div class="dealer-address">${dealerStreet} | ${dealerCity}</div>
+                        <div class="dealer-contact">📞 ${dealerPhone} | 📧 ${dealerEmail}</div>
+                        <div class="dealer-tax">USt-IdNr: ${dealerUstId} | Steuer-Nr: ${dealerSteuer} | EORI: ${dealerEori}</div>
+                    </div>
                 </div>
                 
-                <!-- معلومات العميل -->
+                <!-- ===== سطر Absender فوق العميل ===== -->
+                <div class="absender-line">${absenderLine}</div>
+                
+                <!-- ===== معلومات العميل ===== -->
                 <div class="customer-section">
                     <div class="customer-name">${escapeHtml(customerName)}</div>
                     <div class="customer-details">
                         ${customerAddress.strasse ? `${customerAddress.strasse} ${customerAddress.hausnummer}` : ''}<br>
-                        ${customerAddress.plz ? `${customerAddress.plz} ${customerAddress.stadt}` : ''} ${customerAddress.land !== 'Deutschland' ? customerAddress.land : ''}<br>
-                        ${customerAddress.ustId ? `USt-IdNr: ${customerAddress.ustId}` : ''}<br>
-                        Kunden-Nr: ${invoice.id ? invoice.id.slice(-6) : '---'}
+                        ${customerAddress.plz ? `${customerAddress.plz} ${customerAddress.stadt}` : ''} ${customerAddress.land !== 'Deutschland' ? customerAddress.land : ''}
+                    </div>
+                    <div class="customer-id">
+                        ${customerAddress.ustId ? `USt-IdNr: ${customerAddress.ustId} | ` : ''}Kunden-Nr: ${invoice.id ? invoice.id.slice(-6) : '---'}
                     </div>
                 </div>
                 
-                <!-- عنوان الفاتورة -->
+                <!-- ===== عنوان الفاتورة ===== -->
                 <div class="invoice-title">
                     <h2>Rechnung Nr. ${invoice.nr}</h2>
                     <div class="invoice-meta">Datum: ${invoiceDate} | Lieferdatum: ${invoiceDate}</div>
                     <div class="greeting-text">${begruessungstext}</div>
                 </div>
                 
-                <!-- بيانات المركبة -->
+                <!-- ===== بيانات المركبة ===== -->
                 <div class="vehicle-section">
                     <div class="vehicle-name">${firstVehicle ? `${firstVehicle.marke || ''} ${firstVehicle.modell || ''}`.trim() : 'Fahrzeug'}</div>
                     <div class="vehicle-details">
@@ -1340,12 +1375,12 @@ async function previewInvoice() {
                     </div>
                 </div>
                 
-                <!-- المبلغ -->
+                <!-- ===== المبلغ ===== -->
                 <div class="price-section">
                     <div class="price-amount">${brutto.toFixed(2).replace('.', ',')} €</div>
                 </div>
                 
-                <!-- تفاصيل الضريبة -->
+                <!-- ===== تفاصيل الضريبة ===== -->
                 <div class="tax-details">
                     <div class="tax-line">Gesamt netto: ${netto.toFixed(2).replace('.', ',')} €</div>
                     <div class="tax-line">+ 19% MwSt: ${mwst.toFixed(2).replace('.', ',')} €</div>
@@ -1354,14 +1389,14 @@ async function previewInvoice() {
                     ${restAmount > 0 && invoice.status !== 'storniert' ? `<div class="tax-line" style="color:#e74c3c;">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</div>` : ''}
                 </div>
                 
-                <!-- النصوص القانونية -->
+                <!-- ===== النصوص القانونية ===== -->
                 <div class="legal-text">
                     <p>Der Rechnungsbetrag ist sofort fällig. Die Ware (das Fahrzeug) bleibt bis zur vollständigen Bezahlung Eigentum des Verkäufers.</p>
                     <p>${garantieText}</p>
                     <p>${zusatzText}</p>
                 </div>
                 
-                <!-- التذييل - معلومات البنك والاتصال -->
+                <!-- ===== التذييل: معلومات البنك والاتصال ===== -->
                 <div class="footer">
                     <div class="footer-bank">
                         <strong>Kontodaten</strong><br>
@@ -1375,12 +1410,9 @@ async function previewInvoice() {
                         📧 ${dealerEmail}
                     </div>
                 </div>
-                
-                <div class="small-print">
-                    Geschäftsbedingungen: Gewerblicher Verkauf. Keine Garantie oder Rücknahme.
-                </div>
             </div>
             
+            <!-- زر الطباعة -->
             <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
                 <button onclick="window.print()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
                     🖨️ Drucken / PDF speichern
