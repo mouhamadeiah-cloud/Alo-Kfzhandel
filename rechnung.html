@@ -1068,6 +1068,12 @@ async function previewInvoice() {
     }
     
     const invoice = currentSelectedInvoice;
+    
+    // تحميل إعدادات التاجر والنصوص
+    await loadSettings();
+    await loadAllTexts();
+    
+    // جلب المدفوعات
     const payments = allPayments.filter(p => p.invoiceId === invoice.id);
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const restAmount = (invoice.gesamtBrutto || 0) - totalPaid;
@@ -1075,27 +1081,58 @@ async function previewInvoice() {
     // تنسيق التاريخ
     const invoiceDate = new Date(invoice.datum).toLocaleDateString('de-DE');
     const customerName = invoice.kundeName || getCustomerName(invoice);
+    const lieferdatum = invoice.lieferdatum || invoiceDate;
     
-    // الحصول على بيانات المركبة
+    // الحصول على بيانات المركبة الأولى
     const firstVehicle = invoice.fahrzeuge && invoice.fahrzeuge[0] ? invoice.fahrzeuge[0] : null;
-    const vehicleInfo = firstVehicle ? 
-        `<tr>
-            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Fahrzeug:</strong></td>
-            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.marke || ''} ${firstVehicle.modell || ''} (${firstVehicle.baujahr || ''})</td>
-        </tr>
-        <tr>
-            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>VIN / FIN:</strong></td>
-            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.vin || firstVehicle.fin || '—'}</td>
-        </tr>
-        <tr>
-            <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Kilometerstand:</strong></td>
-            <td style="padding:8px; border-bottom:1px solid #ddd;">${firstVehicle.km ? firstVehicle.km.toLocaleString() + ' km' : '—'}</td>
-        </tr>` : 
-        '<tr><td colspan="2" style="padding:8px;">Kein Fahrzeug zugeordnet</td></tr>';
     
-    // تنسيق المبلغ (لون أحمر للسالب)
-    const amountFormatted = (invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',') + ' €';
-    const amountColor = (invoice.gesamtBrutto || 0) < 0 ? '#e74c3c' : '#27ae60';
+    // حساب المبالغ (netto, mwst, brutto)
+    let totalNet = 0, totalMwSt = 0, totalGross = invoice.gesamtBrutto || 0;
+    
+    if (invoice.typ === 'eu' || invoice.typ === 'export') {
+        // للتصدير: المبلغ المعروض هو netto
+        totalNet = totalGross;
+    } else if (invoice.typ === 'rechnung') {
+        // للفاتورة العادية: حساب netto و mwst
+        if (firstVehicle && firstVehicle.steuerart === '25a') {
+            totalNet = totalGross;
+            totalMwSt = 0;
+        } else {
+            totalNet = totalGross / 1.19;
+            totalMwSt = totalGross - totalNet;
+        }
+    } else if (invoice.typ === 'storno') {
+        totalNet = totalGross;
+        totalMwSt = 0;
+    }
+    
+    // تحديد عنوان الوثيقة حسب النوع
+    let docTitle = 'Rechnung';
+    if (invoice.typ === 'eu') docTitle = 'EU-Export Rechnung';
+    else if (invoice.typ === 'export') docTitle = 'Export Rechnung (Drittland)';
+    else if (invoice.typ === 'storno') docTitle = 'Stornorechnung';
+    
+    // نص الضريبة أو الإعفاء
+    let taxNote = '';
+    if (invoice.typ === 'eu') {
+        taxNote = 'EU Land: Ust-freie innergemeinschaftliche Lieferung i.S.§4 Nr. 1b in Verbindung mit §6a UStG (Art. 28c Abschn. A der 6. EG-Richtlinie)';
+    } else if (invoice.typ === 'export') {
+        taxNote = 'In ein Drittland: USt-freie Ausfuhrlieferung i.S. § 4 Nr. 1a in Verbindung mit § 6 UStG';
+    } else if (invoice.typ === 'rechnung' && firstVehicle && firstVehicle.steuerart === '25a') {
+        taxNote = 'Für Vorsteuerabzugsberechtigte kein Umsatzsteuerausweis möglich, §25 a UStG.';
+    }
+    
+    // تجميع البيانات التقنية للمركبة
+    let technischeDaten = [];
+    if (firstVehicle) {
+        if (firstVehicle.ez) technischeDaten.push(`EZ: ${firstVehicle.ez}`);
+        if (firstVehicle.km) technischeDaten.push(`km: ${firstVehicle.km.toLocaleString()}`);
+        if (firstVehicle.ps) technischeDaten.push(`PS: ${firstVehicle.ps}`);
+        if (firstVehicle.kw) technischeDaten.push(`KW: ${firstVehicle.kw}`);
+        if (firstVehicle.ccm) technischeDaten.push(`ccm: ${firstVehicle.ccm}`);
+        if (firstVehicle.kraftstoff) technischeDaten.push(`Kraftstoff: ${firstVehicle.kraftstoff}`);
+        if (firstVehicle.farbe) technischeDaten.push(`Farbe: ${firstVehicle.farbe}`);
+    }
     
     // حالة الفاتورة
     let statusText = 'Offen';
@@ -1111,14 +1148,14 @@ async function previewInvoice() {
         statusColor = '#e74c3c';
     }
     
-    // إنشاء نافذة المعاينة
+    // فتح نافذة المعاينة
     const previewWindow = window.open('', '_blank');
     previewWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
-            <title>Rechnung ${invoice.nr} - Vorschau</title>
+            <title>${docTitle} ${invoice.nr}</title>
             <style>
                 * {
                     margin: 0;
@@ -1135,132 +1172,142 @@ async function previewInvoice() {
                     min-height: 100vh;
                 }
                 .invoice-container {
-                    max-width: 800px;
+                    max-width: 210mm;
                     width: 100%;
                     background: white;
-                    border-radius: 12px;
                     box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+                    border-radius: 4px;
                     overflow: hidden;
                 }
-                .invoice-header {
-                    background: linear-gradient(135deg, #1a1a1a 0%, #2d3436 100%);
-                    color: white;
-                    padding: 30px;
-                    text-align: center;
-                }
-                .invoice-header h1 {
-                    font-size: 28px;
-                    margin-bottom: 5px;
-                }
-                .invoice-header .invoice-nr {
-                    font-size: 14px;
-                    opacity: 0.8;
-                    margin-top: 5px;
-                }
-                .invoice-status {
-                    display: inline-block;
-                    padding: 5px 15px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: bold;
-                    margin-top: 10px;
-                    background: ${statusColor};
-                    color: white;
-                }
-                .invoice-body {
-                    padding: 30px;
-                }
-                .info-section {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 20px;
-                    margin-bottom: 30px;
-                    padding-bottom: 20px;
-                    border-bottom: 2px solid #eee;
-                }
-                .info-box {
-                    background: #f8f9fa;
-                    padding: 15px;
-                    border-radius: 8px;
-                }
-                .info-box h3 {
-                    font-size: 14px;
-                    color: #666;
-                    margin-bottom: 10px;
-                    text-transform: uppercase;
-                    letter-spacing: 1px;
-                }
-                .info-box p {
-                    margin: 5px 0;
-                    font-size: 14px;
-                }
-                .info-box .name {
-                    font-weight: bold;
-                    font-size: 16px;
-                    color: #2d3436;
-                }
-                table {
+                .a4-doc {
+                    background: white;
                     width: 100%;
-                    border-collapse: collapse;
-                    margin: 20px 0;
+                    padding: 20mm;
+                    color: #000;
+                    font-size: 12pt;
+                    line-height: 1.4;
                 }
-                th {
-                    background: #f8f9fa;
-                    padding: 12px;
-                    text-align: left;
-                    font-weight: 600;
-                    border-bottom: 2px solid #ddd;
-                }
-                td {
-                    padding: 10px 12px;
-                    border-bottom: 1px solid #eee;
-                }
-                .amount-row {
-                    background: #f8f9fa;
-                    font-weight: bold;
-                }
-                .amount-row td {
-                    padding: 15px 12px;
-                    border-bottom: none;
-                }
-                .total-amount {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: ${amountColor};
-                    text-align: right;
-                }
-                .payment-section {
-                    margin-top: 30px;
-                    padding-top: 20px;
-                    border-top: 2px solid #eee;
-                }
-                .payment-section h3 {
-                    font-size: 16px;
-                    margin-bottom: 15px;
-                    color: #2d3436;
-                }
-                .payment-item {
+                .doc-header {
                     display: flex;
                     justify-content: space-between;
-                    padding: 8px 0;
-                    border-bottom: 1px solid #f0f0f0;
+                    margin-bottom: 3mm;
+                    align-items: center;
                 }
-                .rest-amount {
-                    margin-top: 15px;
-                    padding: 12px;
-                    background: #fff3cd;
-                    border-radius: 8px;
+                .doc-logo {
+                    width: 50mm;
+                    height: 20mm;
+                    background: #f8f8f8;
                     text-align: center;
-                    font-weight: bold;
-                    color: #856404;
-                }
-                .invoice-footer {
-                    background: #f8f9fa;
-                    padding: 20px 30px;
-                    text-align: center;
-                    font-size: 12px;
+                    line-height: 20mm;
                     color: #999;
-                    border-top: 1px solid #eee;
+                    font-size: 10pt;
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                .doc-company {
+                    text-align: right;
+                    font-size: 10pt;
+                    background: #f9f9f9;
+                    padding: 2mm 4mm;
+                    border-radius: 4px;
+                }
+                .doc-absender {
+                    font-size: 8pt;
+                    margin-bottom: 1mm;
+                    border-bottom: 1px dashed #ccc;
+                    padding-bottom: 1mm;
+                    color: #555;
+                    width: 100%;
+                    text-decoration: underline;
+                    text-underline-offset: 2px;
+                    text-decoration-color: #aaa;
+                }
+                .doc-customer {
+                    margin-bottom: 1mm;
+                    font-size: 10pt;
+                    background: #f5f5f5;
+                    padding: 2mm;
+                    border-radius: 4px;
+                    width: 100%;
+                }
+                .doc-customer p {
+                    margin: 0.5mm 0;
+                }
+                .doc-title {
+                    font-size: 12pt;
+                    font-weight: bold;
+                    margin: 3mm 0 1mm;
+                    color: #1a1a1a;
+                    border-left: 5px solid #2ecc71;
+                    padding-left: 3mm;
+                }
+                .doc-date-row {
+                    display: flex;
+                    gap: 10mm;
+                    margin-bottom: 3mm;
+                    font-size: 10pt;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }
+                .text-section {
+                    position: relative;
+                    margin: 2mm 0;
+                    padding: 1mm;
+                    background: #fafafa;
+                    border-radius: 4px;
+                }
+                .vehicle-description {
+                    margin: 2mm 0;
+                    background: #fafafa;
+                    padding: 2mm;
+                    border-radius: 4px;
+                    border-left: 3px solid #3498db;
+                }
+                .vehicle-desc-left {
+                    font-size: 11pt;
+                    line-height: 1.4;
+                }
+                .vehicle-desc-left strong {
+                    font-size: 12pt;
+                }
+                .vehicle-desc-right {
+                    text-align: right;
+                    margin-top: 1mm;
+                }
+                .price-area {
+                    font-weight: bold;
+                    font-size: 14pt;
+                    color: #2ecc71;
+                }
+                .signature-area {
+                    margin-top: 10mm;
+                    display: flex;
+                    justify-content: space-between;
+                }
+                .signature-box {
+                    width: 45%;
+                }
+                .signature-line {
+                    border-bottom: 1px solid #000;
+                    margin-top: 2mm;
+                    margin-bottom: 1mm;
+                    height: 10mm;
+                }
+                .doc-footer {
+                    margin-top: 10mm;
+                    display: flex;
+                    justify-content: space-between;
+                    border-top: 2px solid #333;
+                    padding-top: 3mm;
+                    font-size: 9pt;
+                    background: #f2f2f2;
+                    border-radius: 4px 4px 0 0;
+                    padding: 3mm 4mm;
+                }
+                .footer-left i, .footer-right i {
+                    color: #3498db;
+                    margin-right: 2mm;
+                    width: 5mm;
                 }
                 .print-btn {
                     position: fixed;
@@ -1275,12 +1322,25 @@ async function previewInvoice() {
                     font-size: 14px;
                     font-weight: bold;
                     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                    transition: all 0.3s;
                     z-index: 1000;
                 }
                 .print-btn:hover {
                     background: #219a52;
                     transform: scale(1.05);
+                }
+                .status-badge-preview {
+                    display: inline-block;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    margin-left: 10px;
+                    background: ${statusColor};
+                    color: white;
+                }
+                @page {
+                    size: A4;
+                    margin: 0;
                 }
                 @media print {
                     body {
@@ -1294,6 +1354,9 @@ async function previewInvoice() {
                         box-shadow: none;
                         border-radius: 0;
                     }
+                    .a4-doc {
+                        padding: 15mm;
+                    }
                 }
             </style>
         </head>
@@ -1302,58 +1365,129 @@ async function previewInvoice() {
                 <i class="fas fa-print"></i> Drucken / PDF
             </button>
             <div class="invoice-container">
-                <div class="invoice-header">
-                    <h1>AUTO MANAGEMENT</h1>
-                    <div class="invoice-nr">Rechnung Nr. ${invoice.nr}</div>
-                    <div class="invoice-status">${statusText}</div>
-                </div>
-                <div class="invoice-body">
-                    <div class="info-section">
-                        <div class="info-box">
-                            <h3>Rechnungsdetails</h3>
-                            <p><strong>Datum:</strong> ${invoiceDate}</p>
-                            <p><strong>Rechnungstyp:</strong> ${getTypeLabel(invoice.typ)}</p>
-                            <p><strong>Rechnungs-ID:</strong> ${invoice.id.slice(-8)}</p>
+                <div class="a4-doc">
+                    <div class="doc-content">
+                        <!-- Kopfbereich: Logo und Firmendaten -->
+                        <div class="doc-header">
+                            <div class="doc-logo">
+                                ${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}
+                            </div>
+                            <div class="doc-company">
+                                <strong>${dealerSettings.h_firma || 'Auto Management'}</strong><br>
+                                ${dealerSettings.h_street || ''}<br>
+                                ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
+                                <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
+                                <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
+                                USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
+                                EORI: ${dealerSettings.h_eori || ''}
+                            </div>
                         </div>
-                        <div class="info-box">
-                            <h3>Kundeninformationen</h3>
-                            <p class="name">${escapeHtml(customerName)}</p>
-                            ${invoice.kunde?.strasse ? `<p>${escapeHtml(invoice.kunde.strasse)} ${escapeHtml(invoice.kunde.hausnummer || '')}</p>` : ''}
-                            ${invoice.kunde?.plz ? `<p>${invoice.kunde.plz} ${escapeHtml(invoice.kunde.stadt || '')}</p>` : ''}
+                        
+                        <!-- Absenderzeile für Fensterbrief -->
+                        <div class="doc-absender">
+                            ${dealerSettings.h_firma || 'Auto Management'} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
                         </div>
-                    </div>
-                    
-                    <table>
-                        <thead>
-                            <tr><th>Beschreibung</th><th>Details</th></tr>
-                        </thead>
-                        <tbody>
-                            ${vehicleInfo}
-                            <tr>
-                                <td style="padding:8px; border-bottom:1px solid #ddd;"><strong>Rechnungsbetrag:</strong></td>
-                                <td style="padding:8px; border-bottom:1px solid #ddd; font-size:18px; font-weight:bold; color:${amountColor};">${amountFormatted}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    
-                    <div class="payment-section">
-                        <h3>Zahlungshistorie</h3>
-                        ${payments.length === 0 ? '<p style="color:#999;">Keine Zahlungen erfasst.</p>' : 
-                            payments.map(p => `
-                                <div class="payment-item">
+                        
+                        <!-- Kundendaten -->
+                        <div class="doc-customer">
+                            <p><strong>${escapeHtml(customerName)}</strong></p>
+                            <p>${invoice.kunde?.strasse || ''} ${invoice.kunde?.hausnummer || ''}</p>
+                            <p>${invoice.kunde?.plz || ''} ${invoice.kunde?.stadt || ''} ${invoice.kunde?.land || 'Deutschland'}</p>
+                            ${invoice.kunde?.ustId ? '<p>USt-IdNr: ' + escapeHtml(invoice.kunde.ustId) + '</p>' : ''}
+                            <p>Kunden-Nr: ${invoice.kunde?.id?.slice(-6) || invoice.id?.slice(-6) || '--'}</p>
+                        </div>
+                        
+                        <!-- Titel -->
+                        <div class="doc-title">
+                            ${docTitle} Nr. ${invoice.nr}
+                            <span class="status-badge-preview">${statusText}</span>
+                        </div>
+                        
+                        <!-- Zeile für Datum und Lieferdatum -->
+                        <div class="doc-date-row">
+                            <span>Datum: ${invoiceDate}</span>
+                            <span>Lieferdatum: ${lieferdatum}</span>
+                        </div>
+                        
+                        <!-- Begrüßungstext -->
+                        <div class="text-section">
+                            <div>${invoice.texte?.begruessung || 'Sehr geehrte Damen und Herren,'}</div>
+                        </div>
+                        
+                        <!-- Fahrzeug -->
+                        ${firstVehicle ? `
+                        <div class="vehicle-description">
+                            <div class="vehicle-desc-left">
+                                <strong>${firstVehicle.marke || ''} ${firstVehicle.modell || ''}</strong><br>
+                                VIN: ${firstVehicle.vin || firstVehicle.fin || ''}<br>
+                                ${technischeDaten.join(' | ')}
+                            </div>
+                            <div class="vehicle-desc-right">
+                                <div class="price-area">${(firstVehicle.verkaufspreis || invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</div>
+                            </div>
+                        </div>
+                        ` : '<div class="vehicle-description">Keine Fahrzeugdaten verfügbar</div>'}
+                        
+                        <!-- Summenberechnung -->
+                        ${invoice.typ === 'rechnung' ? `
+                        <div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+                            <strong>Gesamt netto: ${totalNet.toFixed(2).replace('.', ',')} €</strong><br>
+                            + MwSt: ${totalMwSt.toFixed(2).replace('.', ',')} €<br>
+                            <strong>Gesamt brutto: ${totalGross.toFixed(2).replace('.', ',')} €</strong>
+                        </div>
+                        ` : `
+                        <div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+                            <strong>Gesamtbetrag (netto): ${totalNet.toFixed(2).replace('.', ',')} €</strong>
+                        </div>
+                        `}
+                        
+                        <!-- Rechtlicher Hinweis -->
+                        ${taxNote ? `<div style="margin-top:5mm; font-style:italic; font-size:10pt;">${taxNote}</div>` : ''}
+                        
+                        <!-- Zusatztext -->
+                        <div class="text-section">
+                            <div>${invoice.texte?.zusatz || ''}</div>
+                        </div>
+                        
+                        <!-- Garantietext -->
+                        ${(invoice.texte?.garantie && invoice.texte.garantie.trim() !== '') ? `
+                        <div class="text-section" style="margin-top:3mm;">
+                            <div>${invoice.texte.garantie}</div>
+                        </div>
+                        ` : ''}
+                        
+                        <!-- Zahlungshistorie (nur wenn Zahlungen vorhanden) -->
+                        ${payments.length > 0 ? `
+                        <div style="margin-top: 5mm; padding: 3mm; background: #f8f9fa; border-radius: 4px;">
+                            <strong>Zahlungshistorie:</strong><br>
+                            ${payments.map(p => `
+                                <div style="display: flex; justify-content: space-between; font-size: 9pt; margin-top: 2mm;">
                                     <span>${new Date(p.date).toLocaleDateString('de-DE')} - ${p.method}</span>
-                                    <span style="font-weight:bold; color:#27ae60;">${p.amount.toFixed(2).replace('.', ',')} €</span>
+                                    <span style="font-weight: bold; color: #27ae60;">${p.amount.toFixed(2).replace('.', ',')} €</span>
                                 </div>
-                            `).join('')
-                        }
-                        ${restAmount > 0 ? `<div class="rest-amount">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</div>` : 
-                          restAmount < 0 ? `<div class="rest-amount" style="background:#e8f5e9; color:#27ae60;">Überzahlung: ${Math.abs(restAmount).toFixed(2).replace('.', ',')} €</div>` : 
-                          `<div class="rest-amount" style="background:#e8f5e9; color:#27ae60;">✓ Vollständig bezahlt</div>`}
+                            `).join('')}
+                            ${restAmount > 0 ? `<div style="margin-top: 3mm; padding: 2mm; background: #fff3cd; border-radius: 4px; text-align: center; font-weight: bold; color: #856404;">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</div>` : 
+                              restAmount < 0 ? `<div style="margin-top: 3mm; padding: 2mm; background: #e8f5e9; border-radius: 4px; text-align: center; font-weight: bold; color: #27ae60;">Überzahlung: ${Math.abs(restAmount).toFixed(2).replace('.', ',')} €</div>` : 
+                              `<div style="margin-top: 3mm; padding: 2mm; background: #e8f5e9; border-radius: 4px; text-align: center; font-weight: bold; color: #27ae60;">✓ Vollständig bezahlt</div>`}
+                        </div>
+                        ` : ''}
+                        
+                    </div> <!-- Ende doc-content -->
+                    
+                    <!-- Fußzeile -->
+                    <div class="doc-footer">
+                        <div class="footer-left">
+                            <div><i class="fas fa-university"></i> <strong>Kontodaten</strong></div>
+                            <div>${dealerSettings.h_bank_name || ''}</div>
+                            <div>IBAN: ${dealerSettings.h_iban || ''}</div>
+                            <div>BIC: ${dealerSettings.h_bic || ''}</div>
+                        </div>
+                        <div class="footer-right">
+                            <div><i class="fas fa-address-card"></i> <strong>Kontakt</strong></div>
+                            <div><i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''}</div>
+                            <div><i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}</div>
+                        </div>
                     </div>
-                </div>
-                <div class="invoice-footer">
-                    <p>Auto Management System - Generiert am ${new Date().toLocaleDateString('de-DE')}</p>
-                    <p>Diese Vorschau ist nur zu Informationszwecken.</p>
                 </div>
             </div>
         </body>
@@ -1361,7 +1495,6 @@ async function previewInvoice() {
     `);
     previewWindow.document.close();
 }
-
 // دالة مساعدة للحصول على نص نوع الفاتورة
 function getTypeLabel(typ) {
     switch(typ) {
