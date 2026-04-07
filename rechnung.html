@@ -769,64 +769,66 @@
         }
 
         // ======================== الوظيفة الأساسية المعدلة ========================
-        function loadInvoices() {
-            const container = document.getElementById('invoice-list-container');
-            if (!container) {
-                console.error('Container nicht gefunden!');
-                return;
+function loadInvoices() {
+    const container = document.getElementById('invoice-list-container');
+    if (!container) {
+        console.error('Container nicht gefunden!');
+        return;
+    }
+
+    const spinner = document.getElementById('loadingSpinner');
+    if (spinner) spinner.style.display = 'flex';
+
+    db.ref('rechnungen').on('value', (snapshot) => {
+        const data = snapshot.val();
+        allInvoices = [];
+        
+        if (data) {
+            for (let id in data) {
+                const inv = data[id];
+                // حساب المبلغ الإجمالي بشكل آمن
+                let totalAmount = 0;
+                if (inv.gesamtBrutto) totalAmount = parseFloat(inv.gesamtBrutto);
+                else if (inv.gesamtpreis) totalAmount = parseFloat(inv.gesamtpreis);
+                else if (inv.total) totalAmount = parseFloat(inv.total);
+                
+                // حساب اسم العميل
+                let customer = 'Unbekannter Kunde';
+                if (inv.kundeName) customer = inv.kundeName;
+                else if (inv.kunde && typeof inv.kunde === 'object') {
+                    customer = inv.kunde.name || inv.kunde.firma || 
+                              `${inv.kunde.vorname || ''} ${inv.kunde.nachname || ''}`.trim();
+                    if (!customer) customer = 'Unbekannter Kunde';
+                } else if (inv.kunde && typeof inv.kunde === 'string') customer = inv.kunde;
+
+                allInvoices.push({
+                    id: id,
+                    nr: inv.nr || inv.rechnungsnummer || `R-${id.slice(-6)}`,
+                    datum: inv.datum || inv.date || new Date().toISOString(),
+                    gesamtBrutto: totalAmount,
+                    status: (inv.status || inv.zahlungsstatus || 'offen').toLowerCase(),
+                    typ: inv.typ || inv.type || 'rechnung',
+                    kundeName: customer,
+                    kunde: inv.kunde || {},
+                    fahrzeuge: inv.fahrzeuge || inv.vehicles || [],
+                    ...inv
+                });
             }
-
-            const spinner = document.getElementById('loadingSpinner');
-            if (spinner) spinner.style.display = 'flex';
-
-            db.ref('rechnungen').on('value', (snapshot) => {
-                const data = snapshot.val();
-                allInvoices = [];
-                
-                if (data) {
-                    for (let id in data) {
-                        const inv = data[id];
-                        // حساب المبلغ الإجمالي بشكل آمن
-                        let totalAmount = 0;
-                        if (inv.gesamtBrutto) totalAmount = parseFloat(inv.gesamtBrutto);
-                        else if (inv.gesamtpreis) totalAmount = parseFloat(inv.gesamtpreis);
-                        else if (inv.total) totalAmount = parseFloat(inv.total);
-                        
-                        // حساب اسم العميل
-                        let customer = 'Unbekannter Kunde';
-                        if (inv.kundeName) customer = inv.kundeName;
-                        else if (inv.kunde && typeof inv.kunde === 'object') {
-                            customer = inv.kunde.name || inv.kunde.firma || 
-                                      `${inv.kunde.vorname || ''} ${inv.kunde.nachname || ''}`.trim();
-                            if (!customer) customer = 'Unbekannter Kunde';
-                        } else if (inv.kunde && typeof inv.kunde === 'string') customer = inv.kunde;
-
-                        allInvoices.push({
-                            id: id,
-                            nr: inv.nr || inv.rechnungsnummer || `R-${id.slice(-6)}`,
-                            datum: inv.datum || inv.date || new Date().toISOString(),
-                            gesamtBrutto: totalAmount,
-                            status: (inv.status || inv.zahlungsstatus || 'offen').toLowerCase(),
-                            typ: inv.typ || inv.type || 'rechnung',
-                            kundeName: customer,
-                            kunde: inv.kunde || {},
-                            fahrzeuge: inv.fahrzeuge || inv.vehicles || [],
-                            ...inv
-                        });
-                    }
-                    allInvoices.sort((a, b) => new Date(b.datum) - new a(b.datum));
-                }
-                
-                if (spinner) spinner.style.display = 'none';
-                applyFilters();
-            }, (error) => {
-                console.error('Fehler beim Laden:', error);
-                if (container) {
-                    container.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-triangle"></i><p>Fehler: ${error.message}</p></div>`;
-                }
-                if (spinner) spinner.style.display = 'none';
-            });
+            // ✅ السطر المصحح - من newest إلى oldest
+            allInvoices.sort((a, b) => new Date(b.datum) - new Date(a.datum));
         }
+        
+        if (spinner) spinner.style.display = 'none';
+        applyFilters();
+        
+    }, (error) => {
+        console.error('Fehler beim Laden:', error);
+        if (container) {
+            container.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-triangle"></i><p>Fehler: ${error.message}</p></div>`;
+        }
+        if (spinner) spinner.style.display = 'none';
+    });
+}
 
         function loadPayments() {
             db.ref('zahlungen').on('value', snapshot => {
