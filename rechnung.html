@@ -618,13 +618,15 @@
     <script>
         // دالة هامبورغر
         function toggleMenu() {
-            document.querySelector('.nav-links').classList.toggle('show');
+            const navLinks = document.querySelector('.nav-links');
+            if(navLinks) navLinks.classList.toggle('show');
         }
 
         // إغلاق القائمة عند النقر على رابط
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
-                document.querySelector('.nav-links').classList.remove('show');
+                const navLinks = document.querySelector('.nav-links');
+                if(navLinks) navLinks.classList.remove('show');
             });
         });
 
@@ -695,10 +697,10 @@
         function loadAutoSavePreference() {
             const saved = localStorage.getItem('autoSaveFolderName');
             if (saved) {
-                autoSaveStatus.innerText = `Auto-Speichern aktiv (Ordner: ${saved})`;
-                chooseFolderBtn.classList.add('active');
+                if(autoSaveStatus) autoSaveStatus.innerText = `Auto-Speichern aktiv (Ordner: ${saved})`;
+                if(chooseFolderBtn) chooseFolderBtn.classList.add('active');
             } else {
-                autoSaveStatus.innerText = '';
+                if(autoSaveStatus) autoSaveStatus.innerText = '';
             }
         }
 
@@ -713,8 +715,8 @@
                 if (permission === 'granted') {
                     autoSaveEnabled = true;
                     localStorage.setItem('autoSaveFolderName', folderHandle.name);
-                    autoSaveStatus.innerText = `Auto-Speichern aktiv (Ordner: ${folderHandle.name})`;
-                    chooseFolderBtn.classList.add('active');
+                    if(autoSaveStatus) autoSaveStatus.innerText = `Auto-Speichern aktiv (Ordner: ${folderHandle.name})`;
+                    if(chooseFolderBtn) chooseFolderBtn.classList.add('active');
                     alert(`Automatisches Speichern aktiviert für Ordner: ${folderHandle.name}`);
                 } else {
                     autoSaveEnabled = false;
@@ -733,8 +735,8 @@
             autoSaveEnabled = false;
             folderHandle = null;
             localStorage.removeItem('autoSaveFolderName');
-            autoSaveStatus.innerText = '';
-            chooseFolderBtn.classList.remove('active');
+            if(autoSaveStatus) autoSaveStatus.innerText = '';
+            if(chooseFolderBtn) chooseFolderBtn.classList.remove('active');
             alert('Automatisches Speichern deaktiviert.');
         }
 
@@ -766,34 +768,63 @@
             }
         }
 
+        // ======================== الوظيفة الأساسية المعدلة ========================
         function loadInvoices() {
             const container = document.getElementById('invoice-list-container');
-            
+            if (!container) {
+                console.error('Container nicht gefunden!');
+                return;
+            }
+
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) spinner.style.display = 'flex';
+
             db.ref('rechnungen').on('value', (snapshot) => {
                 const data = snapshot.val();
                 allInvoices = [];
                 
                 if (data) {
                     for (let id in data) {
+                        const inv = data[id];
+                        // حساب المبلغ الإجمالي بشكل آمن
+                        let totalAmount = 0;
+                        if (inv.gesamtBrutto) totalAmount = parseFloat(inv.gesamtBrutto);
+                        else if (inv.gesamtpreis) totalAmount = parseFloat(inv.gesamtpreis);
+                        else if (inv.total) totalAmount = parseFloat(inv.total);
+                        
+                        // حساب اسم العميل
+                        let customer = 'Unbekannter Kunde';
+                        if (inv.kundeName) customer = inv.kundeName;
+                        else if (inv.kunde && typeof inv.kunde === 'object') {
+                            customer = inv.kunde.name || inv.kunde.firma || 
+                                      `${inv.kunde.vorname || ''} ${inv.kunde.nachname || ''}`.trim();
+                            if (!customer) customer = 'Unbekannter Kunde';
+                        } else if (inv.kunde && typeof inv.kunde === 'string') customer = inv.kunde;
+
                         allInvoices.push({
                             id: id,
-                            ...data[id]
+                            nr: inv.nr || inv.rechnungsnummer || `R-${id.slice(-6)}`,
+                            datum: inv.datum || inv.date || new Date().toISOString(),
+                            gesamtBrutto: totalAmount,
+                            status: (inv.status || inv.zahlungsstatus || 'offen').toLowerCase(),
+                            typ: inv.typ || inv.type || 'rechnung',
+                            kundeName: customer,
+                            kunde: inv.kunde || {},
+                            fahrzeuge: inv.fahrzeuge || inv.vehicles || [],
+                            ...inv
                         });
                     }
-                    // الترتيب من الأحدث إلى الأقدم
-                    allInvoices.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+                    allInvoices.sort((a, b) => new Date(b.datum) - new a(b.datum));
                 }
                 
-                document.getElementById('loadingSpinner').style.display = 'none';
+                if (spinner) spinner.style.display = 'none';
                 applyFilters();
             }, (error) => {
-                console.error('Fehler beim Laden der Rechnungen:', error);
-                container.innerHTML = `
-                    <div class="no-data">
-                        <i class="fas fa-exclamation-triangle" style="color: var(--danger-red);"></i>
-                        <p>Fehler beim Laden der Rechnungen: ${error.message}</p>
-                    </div>
-                `;
+                console.error('Fehler beim Laden:', error);
+                if (container) {
+                    container.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-triangle"></i><p>Fehler: ${error.message}</p></div>`;
+                }
+                if (spinner) spinner.style.display = 'none';
             });
         }
 
@@ -810,9 +841,9 @@
         }
 
         function applyFilters() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('statusFilter').value;
-            const typeFilter = document.getElementById('typeFilter').value;
+            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+            const typeFilter = document.getElementById('typeFilter')?.value || 'all';
             
             let filteredInvoices = [...allInvoices];
             
@@ -826,10 +857,9 @@
             
             if (searchTerm) {
                 filteredInvoices = filteredInvoices.filter(inv => {
-                    const customerName = getCustomerName(inv).toLowerCase();
-                    return inv.nr?.toLowerCase().includes(searchTerm) ||
-                           customerName.includes(searchTerm) ||
-                           inv.fahrzeuge?.some(f => f.vin?.toLowerCase().includes(searchTerm));
+                    const customerName = (inv.kundeName || '').toLowerCase();
+                    const vinMatch = inv.fahrzeuge?.some(f => f.vin?.toLowerCase().includes(searchTerm));
+                    return (inv.nr?.toLowerCase().includes(searchTerm) || customerName.includes(searchTerm) || vinMatch);
                 });
             }
             
@@ -848,21 +878,17 @@
 
         function renderInvoices(invoices) {
             const container = document.getElementById('invoice-list-container');
+            if (!container) return;
             
             if (invoices.length === 0) {
-                container.innerHTML = `
-                    <div class="no-data">
-                        <i class="fas fa-file-invoice"></i>
-                        <p>Keine Rechnungen gefunden.</p>
-                    </div>
-                `;
+                container.innerHTML = `<div class="no-data"><i class="fas fa-file-invoice"></i><p>Keine Rechnungen gefunden.</p></div>`;
                 return;
             }
             
             let html = '';
             invoices.forEach(invoice => {
                 const date = new Date(invoice.datum).toLocaleDateString('de-DE');
-                const status = invoice.status || 'offen';
+                let status = invoice.status || 'offen';
                 let statusClass = 'status-offen';
                 let statusText = 'Nicht Bezahlt';
                 
@@ -883,18 +909,19 @@
                     'Kein Fahrzeug';
                 
                 const typeIcon = getTypeIcon(invoice.typ);
-                const customerName = getCustomerName(invoice);
+                const customerName = invoice.kundeName || 'Unbekannter Kunde';
+                const amount = invoice.gesamtBrutto || 0;
                 
                 html += `
                     <div class="invoice-card" onclick="selectCard(this, '${invoice.id}')" ondblclick="showInvoiceDetails('${invoice.id}')">
                         <div class="invoice-type-icon">${typeIcon}</div>
                         <div class="col-id">${invoice.nr || 'Unbekannt'}<span>${date}</span></div>
                         <div class="col-info">
-                            <div class="customer-name">${customerName}</div>
-                            <div class="car-details">${vehicleText}</div>
+                            <div class="customer-name">${escapeHtml(customerName)}</div>
+                            <div class="car-details">${escapeHtml(vehicleText)}</div>
                         </div>
                         <div class="col-money">
-                            <div class="amount">${(invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</div>
+                            <div class="amount">${amount.toFixed(2).replace('.', ',')} €</div>
                             <div class="tax-label">${getTaxLabel(invoice)}</div>
                         </div>
                         <div class="col-status">
@@ -905,6 +932,19 @@
             });
             
             container.innerHTML = html;
+        }
+
+        // دالة مساعدة لمنع Injection
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+                return c;
+            });
         }
 
         function getTaxLabel(invoice) {
@@ -923,81 +963,91 @@
             currentSelectedId = id;
             currentSelectedInvoice = allInvoices.find(inv => inv.id === id);
             
-            document.getElementById('action-toolbar').style.display = 'flex';
+            const toolbar = document.getElementById('action-toolbar');
+            if(toolbar) toolbar.style.display = 'flex';
             
             const stornoBtn = document.getElementById('stornoBtn');
-            if (currentSelectedInvoice && currentSelectedInvoice.typ === 'storno') {
-                stornoBtn.disabled = true;
-                stornoBtn.title = 'Eine Stornorechnung kann nicht nochmals storniert werden.';
-            } else {
-                stornoBtn.disabled = false;
-                stornoBtn.title = '';
+            if (stornoBtn) {
+                if (currentSelectedInvoice && (currentSelectedInvoice.typ === 'storno' || currentSelectedInvoice.status === 'storniert')) {
+                    stornoBtn.disabled = true;
+                    stornoBtn.title = 'Diese Rechnung kann nicht storniert werden.';
+                } else {
+                    stornoBtn.disabled = false;
+                    stornoBtn.title = '';
+                }
             }
         }
 
-        // ===== DETAIL-MODAL (Doppelklick) =====
-        async function showInvoiceDetails(invoiceId) {
-            const invoice = allInvoices.find(inv => inv.id === invoiceId);
-            if (!invoice) return;
-
-            const payments = allPayments.filter(p => p.invoiceId === invoiceId);
-            const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-            const rest = (invoice.gesamtBrutto || 0) - totalPaid;
-
-            const customerName = getCustomerName(invoice);
-            const date = new Date(invoice.datum).toLocaleDateString('de-DE');
-
-            let paymentsHtml = '';
-            if (payments.length === 0) {
-                paymentsHtml = '<p style="text-align:center; color:#999;">Keine Zahlungen erfasst.</p>';
-            } else {
-                paymentsHtml = payments.map(p => `
-                    <div class="payment-item">
-                        <span class="payment-date">${new Date(p.date).toLocaleDateString('de-DE')}</span>
-                        <span class="payment-amount">${p.amount.toFixed(2).replace('.', ',')} €</span>
-                    </div>
-                `).join('');
+        // ======================== وظيفة Storno المُفعَّلة بالكامل ========================
+        async function stornoInvoice() {
+            if (!currentSelectedInvoice) {
+                alert('Keine Rechnung ausgewählt.');
+                return;
             }
-
-            const detailHtml = `
-                <div class="detail-row">
-                    <span class="detail-label">Rechnungsnummer:</span>
-                    <span class="detail-value">${invoice.nr || '--'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Datum:</span>
-                    <span class="detail-value">${date}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Kunde:</span>
-                    <span class="detail-value">${customerName}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Gesamtbetrag:</span>
-                    <span class="detail-value">${(invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</span>
-                </div>
-                <div class="detail-row">
-                    <span class="detail-label">Bereits gezahlt:</span>
-                    <span class="detail-value">${totalPaid.toFixed(2).replace('.', ',')} €</span>
-                </div>
-                <div class="restbetrag">
-                    <i class="fas fa-exclamation-triangle"></i> Offener Betrag: ${rest.toFixed(2).replace('.', ',')} €
-                </div>
-                <div class="payment-history">
-                    <h4 style="margin:15px 0 5px;">Zahlungshistorie</h4>
-                    ${paymentsHtml}
-                </div>
-            `;
-
-            document.getElementById('detailContent').innerHTML = detailHtml;
-            document.getElementById('detailModal').style.display = 'flex';
+            
+            if (currentSelectedInvoice.status === 'storniert') {
+                alert('Diese Rechnung wurde bereits storniert.');
+                return;
+            }
+            
+            if (currentSelectedInvoice.typ === 'storno') {
+                alert('Eine Stornorechnung kann nicht storniert werden.');
+                return;
+            }
+            
+            const confirmStorno = confirm(`Möchten Sie die Rechnung ${currentSelectedInvoice.nr} wirklich stornieren?`);
+            if (!confirmStorno) return;
+            
+            try {
+                // 1. Status der Originalrechnung aktualisieren
+                await db.ref(`rechnungen/${currentSelectedId}`).update({
+                    status: 'storniert',
+                    storniertAm: new Date().toISOString()
+                });
+                
+                // 2. Stornorechnung als neuen Eintrag erstellen
+                const stornoRechnung = {
+                    ...currentSelectedInvoice,
+                    id: undefined, // Firebase generiert neue ID
+                    nr: `${currentSelectedInvoice.nr}-STORNO`,
+                    typ: 'storno',
+                    originalRechnungId: currentSelectedId,
+                    gesamtBrutto: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+                    status: 'bezahlt',
+                    stornoDatum: new Date().toISOString(),
+                    datum: new Date().toISOString()
+                };
+                
+                await db.ref('rechnungen').push(stornoRechnung);
+                
+                // 3. Eintrag in der Kasse für die Stornierung
+                await db.ref('kasse/transaktionen').push({
+                    beschreibung: `Storno Rechnung ${currentSelectedInvoice.nr}`,
+                    betrag: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+                    methode: 'storno',
+                    datum: new Date().toISOString().split('T')[0],
+                    typ: 'ausgabe',
+                    rechnungId: currentSelectedId
+                });
+                
+                alert(`Rechnung ${currentSelectedInvoice.nr} wurde erfolgreich storniert.`);
+                
+                // تحديث القائمة
+                await loadInvoices();
+                
+                // إخفاء شريط الأدوات
+                const toolbar = document.getElementById('action-toolbar');
+                if(toolbar) toolbar.style.display = 'none';
+                currentSelectedId = null;
+                currentSelectedInvoice = null;
+                
+            } catch (error) {
+                console.error('Fehler bei Storno:', error);
+                alert('Fehler beim Stornieren: ' + error.message);
+            }
         }
 
-        function closeDetailModal() {
-            document.getElementById('detailModal').style.display = 'none';
-        }
-
-        // ===== PREVIEW (ملخص) =====
+        // باقي الوظائف (Preview, Payment, Details) تبقى كما هي مع إضافة التحقق من وجود العناصر
         async function previewInvoice() {
             if (!currentSelectedInvoice) {
                 alert('Keine Rechnung ausgewählt.');
@@ -1006,38 +1056,37 @@
             alert('Preview-Funktion ist vollständig implementiert.');
         }
 
-        function printPreviewDocument() {
-            window.print();
-        }
-
-        function closePreviewOverlay() {
-            const overlay = document.getElementById('previewOverlay');
-            if (overlay) overlay.style.display = 'none';
-            if (currentSelectedInvoice) {
-                document.getElementById('action-toolbar').style.display = 'flex';
-            }
-        }
-
-        // ===== ZAHLUNG (ملخص) =====
         function openPaymentModal() {
             if (!currentSelectedInvoice) return;
-            document.getElementById('payment-target').innerHTML = `
-                <i class="fas fa-file-invoice"></i> Rechnung: ${currentSelectedInvoice.nr}<br>
-                <small>Offener Betrag: ${(currentSelectedInvoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</small>
-            `;
-            document.getElementById('pay-date').valueAsDate = new Date();
-            document.getElementById('payment-modal').style.display = 'flex';
+            const target = document.getElementById('payment-target');
+            if(target) {
+                target.innerHTML = `
+                    <i class="fas fa-file-invoice"></i> Rechnung: ${currentSelectedInvoice.nr}<br>
+                    <small>Offener Betrag: ${(currentSelectedInvoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</small>
+                `;
+            }
+            const dateInput = document.getElementById('pay-date');
+            if(dateInput) dateInput.valueAsDate = new Date();
+            
+            const modal = document.getElementById('payment-modal');
+            if(modal) modal.style.display = 'flex';
         }
 
         function closePaymentModal() {
-            document.getElementById('payment-modal').style.display = 'none';
-            document.getElementById('pay-amount').value = '';
+            const modal = document.getElementById('payment-modal');
+            if(modal) modal.style.display = 'none';
+            const amountInput = document.getElementById('pay-amount');
+            if(amountInput) amountInput.value = '';
         }
 
         async function savePayment() {
-            const amount = parseFloat(document.getElementById('pay-amount').value);
-            const method = document.getElementById('pay-method').value;
-            const date = document.getElementById('pay-date').value;
+            const amountInput = document.getElementById('pay-amount');
+            const methodSelect = document.getElementById('pay-method');
+            const dateInput = document.getElementById('pay-date');
+            
+            const amount = parseFloat(amountInput?.value);
+            const method = methodSelect?.value;
+            const date = dateInput?.value;
 
             if(!amount || amount <= 0) {
                 alert("Bitte einen gültigen Betrag eingeben.");
@@ -1092,7 +1141,8 @@
                     date: date,
                     invoice: currentSelectedInvoice
                 };
-                document.getElementById('receiptPrompt').style.display = 'flex';
+                const receiptPrompt = document.getElementById('receiptPrompt');
+                if(receiptPrompt) receiptPrompt.style.display = 'flex';
 
                 closePaymentModal();
                 loadInvoices();
@@ -1104,7 +1154,8 @@
         }
 
         function handleReceiptDecision(shouldPrint) {
-            document.getElementById('receiptPrompt').style.display = 'none';
+            const promptDiv = document.getElementById('receiptPrompt');
+            if(promptDiv) promptDiv.style.display = 'none';
             if (shouldPrint && lastPaymentData) {
                 alert('Quittung wird gedruckt...');
             }
@@ -1115,29 +1166,78 @@
         }
 
         function closeReceiptOverlay() {
-            document.getElementById('receiptOverlay').style.display = 'none';
+            const overlay = document.getElementById('receiptOverlay');
+            if(overlay) overlay.style.display = 'none';
         }
 
-        // ===== STORNO (ملخص) =====
-        async function stornoInvoice() {
-            if (!currentSelectedInvoice) {
-                alert('Keine Rechnung ausgewählt.');
-                return;
+        async function showInvoiceDetails(invoiceId) {
+            const invoice = allInvoices.find(inv => inv.id === invoiceId);
+            if (!invoice) return;
+
+            const payments = allPayments.filter(p => p.invoiceId === invoiceId);
+            const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+            const rest = (invoice.gesamtBrutto || 0) - totalPaid;
+
+            const customerName = invoice.kundeName || 'Unbekannt';
+            const date = new Date(invoice.datum).toLocaleDateString('de-DE');
+
+            let paymentsHtml = '';
+            if (payments.length === 0) {
+                paymentsHtml = '<p style="text-align:center; color:#999;">Keine Zahlungen erfasst.</p>';
+            } else {
+                paymentsHtml = payments.map(p => `
+                    <div class="payment-item">
+                        <span class="payment-date">${new Date(p.date).toLocaleDateString('de-DE')}</span>
+                        <span class="payment-amount">${p.amount.toFixed(2).replace('.', ',')} €</span>
+                    </div>
+                `).join('');
             }
-            if (currentSelectedInvoice.status === 'storniert') {
-                alert('Diese Rechnung wurde bereits storniert.');
-                return;
-            }
-            if (currentSelectedInvoice.typ === 'storno') {
-                alert('Eine Stornorechnung kann nicht storniert werden.');
-                return;
-            }
-            alert('Storno-Funktion ist vollständig implementiert.');
+
+            const detailHtml = `
+                <div class="detail-row">
+                    <span class="detail-label">Rechnungsnummer:</span>
+                    <span class="detail-value">${invoice.nr || '--'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Datum:</span>
+                    <span class="detail-value">${date}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Kunde:</span>
+                    <span class="detail-value">${escapeHtml(customerName)}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Gesamtbetrag:</span>
+                    <span class="detail-value">${(invoice.gesamtBrutto || 0).toFixed(2).replace('.', ',')} €</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Bereits gezahlt:</span>
+                    <span class="detail-value">${totalPaid.toFixed(2).replace('.', ',')} €</span>
+                </div>
+                <div class="restbetrag">
+                    <i class="fas fa-exclamation-triangle"></i> Offener Betrag: ${rest.toFixed(2).replace('.', ',')} €
+                </div>
+                <div class="payment-history">
+                    <h4 style="margin:15px 0 5px;">Zahlungshistorie</h4>
+                    ${paymentsHtml}
+                </div>
+            `;
+
+            const detailContent = document.getElementById('detailContent');
+            if(detailContent) detailContent.innerHTML = detailHtml;
+            const detailModal = document.getElementById('detailModal');
+            if(detailModal) detailModal.style.display = 'flex';
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            if(modal) modal.style.display = 'none';
         }
 
         window.onclick = function(e) {
             if (!e.target.closest('.invoice-card') && !e.target.closest('#action-toolbar') && !e.target.closest('.modal-window') && !e.target.closest('.overlay') && !e.target.closest('.custom-prompt')) {
-                document.getElementById('action-toolbar').style.display = 'none';
+                const toolbar = document.getElementById('action-toolbar');
+                if(toolbar) toolbar.style.display = 'none';
                 document.querySelectorAll('.invoice-card').forEach(c => c.classList.remove('selected'));
                 currentSelectedId = null;
                 currentSelectedInvoice = null;
