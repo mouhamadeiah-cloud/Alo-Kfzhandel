@@ -230,21 +230,21 @@
             color: #ddd;
         }
 
+        /* ===== Overlay für A4 Dokument (wie in operation.html) ===== */
         .overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); display: none; flex-direction: column; align-items: center;
             overflow-y: auto; padding: 40px 0; z-index: 9999;
         }
-
         .a4-doc {
-            background: white; 
-            width: 210mm; 
-            min-height: 297mm; 
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
             padding: 20mm;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); 
-            color: #000; 
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            color: #000;
             position: relative;
-            font-size: 12pt; 
+            font-size: 12pt;
             line-height: 1.4;
             border-radius: 3px;
             display: flex;
@@ -281,36 +281,77 @@
         .doc-logo { width: 50mm; height: 20mm; background: #f8f8f8; text-align: center; line-height: 20mm; color: #999; font-size: 10pt; border-radius: 4px; overflow: hidden; }
         .doc-logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .doc-company { text-align: right; font-size: 10pt; background: #f9f9f9; padding: 2mm 4mm; border-radius: 4px; }
-        .doc-absender { font-size: 8pt; margin-bottom: 1mm; border-bottom: 1px dashed #ccc; padding-bottom: 1mm; color: #555; width: 100%; }
-        .doc-customer { margin-bottom: 3mm; font-size: 11pt; background: #f5f5f5; padding: 2mm; border-radius: 4px; width: 100%; }
-        .doc-customer p { margin: 0.5mm 0; }
-        .doc-title { font-size: 16pt; font-weight: bold; margin: 3mm 0 2mm; color: var(--primary-dark); border-left: 5px solid var(--accent-green); padding-left: 3mm; }
 
-        /* Anpassungen für Storno-Optionen mit Checkbox */
-        .storno-option {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 5mm 0;
+        .doc-absender {
+            font-size: 8pt;
+            margin-bottom: 1mm;
+            border-bottom: 1px dashed #ccc;
+            padding-bottom: 1mm;
+            color: #555;
+            width: 100%;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            text-decoration-color: #aaa;
+        }
+        .doc-customer {
+            margin-bottom: 1mm;
+            font-size: 10pt;
+            background: #f5f5f5;
             padding: 2mm;
-            background: #f9f9f9;
             border-radius: 4px;
+            width: 100%;
         }
-        .storno-option input[type="checkbox"] {
-            margin-right: 5px;
+        .doc-customer p { margin: 0.5mm 0; }
+
+        .doc-title {
+            font-size: 12pt;
+            font-weight: bold;
+            margin: 3mm 0 1mm;
+            color: var(--primary-dark);
+            border-left: 5px solid var(--accent-green);
+            padding-left: 3mm;
         }
-        .storno-option .input-group {
+        .doc-date-row {
             display: flex;
-            gap: 5px;
+            gap: 10mm;
+            margin-bottom: 3mm;
+            font-size: 10pt;
             align-items: center;
             flex-wrap: wrap;
         }
-        .storno-option input[type="text"],
-        .storno-option input[type="date"] {
-            padding: 2mm;
-            border: 1px solid #ccc;
-            border-radius: 3px;
-            font-size: 10pt;
+
+        .vehicle-description { 
+            margin: 2mm 0; 
+            background: #fafafa; 
+            padding: 2mm; 
+            border-radius: 4px; 
+            border-left: 3px solid var(--accent-blue);
+        }
+        .vehicle-desc-left { 
+            font-size: 11pt; 
+            line-height: 1.4; 
+        }
+        .vehicle-desc-left strong {
+            font-size: 12pt;
+        }
+        .vehicle-desc-right { 
+            text-align: right; 
+            margin-top: 1mm;
+        }
+        .price-area { 
+            font-weight: bold; 
+            font-size: 14pt; 
+            color: var(--accent-green); 
+        }
+
+        .footer-left, .footer-right {
+            display: flex;
+            flex-direction: column;
+        }
+        .footer-left i, .footer-right i {
+            color: var(--accent-blue);
+            margin-right: 2mm;
+            width: 5mm;
         }
 
         .custom-prompt {
@@ -327,32 +368,6 @@
         .prompt-btn { padding: 10px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-yes { background: var(--accent-green); color: white; }
         .btn-no { background: #ddd; color: #333; }
-
-        .quittung-doc {
-            font-size: 11pt;
-        }
-        .quittung-header {
-            text-align: center;
-            margin-bottom: 10mm;
-        }
-        .quittung-header h1 {
-            font-size: 18pt;
-            margin: 0;
-            color: var(--primary-dark);
-        }
-        .quittung-details {
-            margin: 5mm 0;
-        }
-        .quittung-amount {
-            font-size: 16pt;
-            font-weight: bold;
-            text-align: right;
-            color: var(--accent-green);
-        }
-        .quittung-footer {
-            margin-top: 15mm;
-            text-align: right;
-        }
 
         .detail-row {
             display: flex;
@@ -410,18 +425,17 @@
                 page-break-inside: avoid;
                 box-sizing: border-box;
             }
-            .no-print, .doc-controls, .storno-option input, .storno-option input[type="checkbox"], .custom-prompt {
+            .no-print, .doc-controls, .custom-prompt {
                 display: none !important;
             }
-            .print-only {
-                display: block !important;
+            .vehicle-description, .doc-header, .doc-customer, .doc-title, .doc-footer {
+                page-break-inside: avoid;
             }
         }
 
         @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
         @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-        /* ===== تحسينات للجوال ===== */
         @media (max-width: 768px) {
             .invoice-card {
                 grid-template-columns: 1fr;
@@ -615,6 +629,16 @@
         </div>
     </div>
 
+    <!-- Overlay für Preview (wie in operation.html) -->
+    <div id="previewOverlay" class="overlay" style="display:none;" onclick="closePreviewOverlay()">
+        <div class="doc-controls no-print">
+            <button class="doc-btn print" onclick="printPreviewDocument()"><i class="fas fa-print"></i> Drucken</button>
+            <button class="doc-btn pdf" onclick="printPreviewDocument()"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button onclick="closePreviewOverlay()" style="margin-left:auto;"><i class="fas fa-times"></i> Schließen</button>
+        </div>
+        <div class="a4-doc" id="previewDocument" onclick="event.stopPropagation()"></div>
+    </div>
+
     <script>
         // دالة هامبورغر
         function toggleMenu() {
@@ -622,7 +646,6 @@
             if(navLinks) navLinks.classList.toggle('show');
         }
 
-        // إغلاق القائمة عند النقر على رابط
         document.querySelectorAll('.nav-links a').forEach(link => {
             link.addEventListener('click', () => {
                 const navLinks = document.querySelector('.nav-links');
@@ -651,14 +674,12 @@
         let dealerSettings = {};
         let allTexts = { Begrüßungstexte: [], Garantie: [], Zusatz: [] };
         let defaultTexts = { Begrüßungstexte: '', Garantie: '', Zusatz: '' };
-        let selectedStornoOption = 'bank';
-        let useBankText = false;
-        let useCashText = false;
+        let selectedTexts = { Begrüßungstexte: '', Garantie: '', Zusatz: '' };
+        let allPayments = [];
 
         let folderHandle = null;
         let autoSaveEnabled = false;
         let lastPaymentData = null;
-        let allPayments = [];
 
         const autoSaveStatus = document.getElementById('autoSaveStatus');
         const chooseFolderBtn = document.getElementById('chooseFolderBtn');
@@ -765,70 +786,64 @@
             for (let cat in allTexts) {
                 const def = allTexts[cat].find(t => t.isDefault);
                 defaultTexts[cat] = def ? def.content : (allTexts[cat][0]?.content || '');
+                selectedTexts[cat] = defaultTexts[cat];
             }
         }
 
-        // ======================== الوظيفة الأساسية المعدلة ========================
-function loadInvoices() {
-    const container = document.getElementById('invoice-list-container');
-    if (!container) {
-        console.error('Container nicht gefunden!');
-        return;
-    }
+        function loadInvoices() {
+            const container = document.getElementById('invoice-list-container');
+            if (!container) return;
 
-    const spinner = document.getElementById('loadingSpinner');
-    if (spinner) spinner.style.display = 'flex';
+            const spinner = document.getElementById('loadingSpinner');
+            if (spinner) spinner.style.display = 'flex';
 
-    db.ref('rechnungen').on('value', (snapshot) => {
-        const data = snapshot.val();
-        allInvoices = [];
-        
-        if (data) {
-            for (let id in data) {
-                const inv = data[id];
-                // حساب المبلغ الإجمالي بشكل آمن
-                let totalAmount = 0;
-                if (inv.gesamtBrutto) totalAmount = parseFloat(inv.gesamtBrutto);
-                else if (inv.gesamtpreis) totalAmount = parseFloat(inv.gesamtpreis);
-                else if (inv.total) totalAmount = parseFloat(inv.total);
+            db.ref('rechnungen').on('value', (snapshot) => {
+                const data = snapshot.val();
+                allInvoices = [];
                 
-                // حساب اسم العميل
-                let customer = 'Unbekannter Kunde';
-                if (inv.kundeName) customer = inv.kundeName;
-                else if (inv.kunde && typeof inv.kunde === 'object') {
-                    customer = inv.kunde.name || inv.kunde.firma || 
-                              `${inv.kunde.vorname || ''} ${inv.kunde.nachname || ''}`.trim();
-                    if (!customer) customer = 'Unbekannter Kunde';
-                } else if (inv.kunde && typeof inv.kunde === 'string') customer = inv.kunde;
+                if (data) {
+                    for (let id in data) {
+                        const inv = data[id];
+                        let totalAmount = 0;
+                        if (inv.gesamtBrutto) totalAmount = parseFloat(inv.gesamtBrutto);
+                        else if (inv.gesamtpreis) totalAmount = parseFloat(inv.gesamtpreis);
+                        else if (inv.total) totalAmount = parseFloat(inv.total);
+                        
+                        let customer = 'Unbekannter Kunde';
+                        if (inv.kundeName) customer = inv.kundeName;
+                        else if (inv.kunde && typeof inv.kunde === 'object') {
+                            customer = inv.kunde.name || inv.kunde.firma || 
+                                      `${inv.kunde.vorname || ''} ${inv.kunde.nachname || ''}`.trim();
+                            if (!customer) customer = 'Unbekannter Kunde';
+                        } else if (inv.kunde && typeof inv.kunde === 'string') customer = inv.kunde;
 
-                allInvoices.push({
-                    id: id,
-                    nr: inv.nr || inv.rechnungsnummer || `R-${id.slice(-6)}`,
-                    datum: inv.datum || inv.date || new Date().toISOString(),
-                    gesamtBrutto: totalAmount,
-                    status: (inv.status || inv.zahlungsstatus || 'offen').toLowerCase(),
-                    typ: inv.typ || inv.type || 'rechnung',
-                    kundeName: customer,
-                    kunde: inv.kunde || {},
-                    fahrzeuge: inv.fahrzeuge || inv.vehicles || [],
-                    ...inv
-                });
-            }
-            // ✅ السطر المصحح - من newest إلى oldest
-            allInvoices.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+                        allInvoices.push({
+                            id: id,
+                            nr: inv.nr || inv.rechnungsnummer || `R-${id.slice(-6)}`,
+                            datum: inv.datum || inv.date || new Date().toISOString(),
+                            gesamtBrutto: totalAmount,
+                            status: (inv.status || inv.zahlungsstatus || 'offen').toLowerCase(),
+                            typ: inv.typ || inv.type || 'rechnung',
+                            kundeName: customer,
+                            kunde: inv.kunde || {},
+                            fahrzeuge: inv.fahrzeuge || inv.vehicles || [],
+                            texte: inv.texte || { begruessung: '', garantie: '', zusatz: '' },
+                            ...inv
+                        });
+                    }
+                    allInvoices.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+                }
+                
+                if (spinner) spinner.style.display = 'none';
+                applyFilters();
+            }, (error) => {
+                console.error('Fehler:', error);
+                if (container) {
+                    container.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-triangle"></i><p>Fehler: ${error.message}</p></div>`;
+                }
+                if (spinner) spinner.style.display = 'none';
+            });
         }
-        
-        if (spinner) spinner.style.display = 'none';
-        applyFilters();
-        
-    }, (error) => {
-        console.error('Fehler beim Laden:', error);
-        if (container) {
-            container.innerHTML = `<div class="no-data"><i class="fas fa-exclamation-triangle"></i><p>Fehler: ${error.message}</p></div>`;
-        }
-        if (spinner) spinner.style.display = 'none';
-    });
-}
 
         function loadPayments() {
             db.ref('zahlungen').on('value', snapshot => {
@@ -936,7 +951,6 @@ function loadInvoices() {
             container.innerHTML = html;
         }
 
-        // دالة مساعدة لمنع Injection
         function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/[&<>]/g, function(m) {
@@ -944,8 +958,6 @@ function loadInvoices() {
                 if (m === '<') return '&lt;';
                 if (m === '>') return '&gt;';
                 return m;
-            }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-                return c;
             });
         }
 
@@ -980,463 +992,206 @@ function loadInvoices() {
             }
         }
 
-        // ======================== وظيفة Storno المُفعَّلة بالكامل ========================
-async function stornoInvoice() {
-    if (!currentSelectedInvoice) {
-        alert('Keine Rechnung ausgewählt.');
-        return;
-    }
-    
-    if (currentSelectedInvoice.status === 'storniert') {
-        alert('Diese Rechnung wurde bereits storniert.');
-        return;
-    }
-    
-    if (currentSelectedInvoice.typ === 'storno') {
-        alert('Eine Stornorechnung kann nicht storniert werden.');
-        return;
-    }
-    
-    const confirmStorno = confirm(`Möchten Sie die Rechnung ${currentSelectedInvoice.nr} wirklich stornieren?`);
-    if (!confirmStorno) return;
-    
-    try {
-        // 1. Status der Originalrechnung aktualisieren
-        await db.ref(`rechnungen/${currentSelectedId}`).update({
-            status: 'storniert',
-            storniertAm: new Date().toISOString()
-        });
-        
-        // 2. Stornorechnung als neuen Eintrag erstellen - OHNE das 'id' Feld!
-        const stornoRechnung = {
-            nr: `${currentSelectedInvoice.nr}-STORNO`,
-            typ: 'storno',
-            originalRechnungId: currentSelectedId,
-            gesamtBrutto: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
-            status: 'bezahlt',
-            stornoDatum: new Date().toISOString(),
-            datum: new Date().toISOString(),
-            // فقط انسخ الحقول الآمنة
-            kunde: currentSelectedInvoice.kunde || {},
-            kundeName: currentSelectedInvoice.kundeName || getCustomerName(currentSelectedInvoice),
-            fahrzeuge: currentSelectedInvoice.fahrzeuge || []
-        };
-        
-        // إضافة أي حقول أخرى موجودة بشكل آمن (باستثناء id)
-        const safeFields = ['rechnungsnummer', 'mwst', 'steuer', 'zahlungsziel', 'kommentar'];
-        safeFields.forEach(field => {
-            if (currentSelectedInvoice[field] !== undefined) {
-                stornoRechnung[field] = currentSelectedInvoice[field];
+        // ======================== PREVIEW mit originalem Format aus operation.html ========================
+        async function previewInvoice() {
+            if (!currentSelectedInvoice) {
+                alert('Keine Rechnung ausgewählt.');
+                return;
             }
-        });
-        
-        // استخدام push لإنشاء ID جديد تلقائياً
-        await db.ref('rechnungen').push(stornoRechnung);
-        
-        // 3. Eintrag in der Kasse für die Stornierung
-        await db.ref('kasse/transaktionen').push({
-            beschreibung: `Storno Rechnung ${currentSelectedInvoice.nr}`,
-            betrag: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
-            methode: 'storno',
-            datum: new Date().toISOString().split('T')[0],
-            typ: 'ausgabe',
-            rechnungId: currentSelectedId
-        });
-        
-        alert(`Rechnung ${currentSelectedInvoice.nr} wurde erfolgreich storniert.`);
-        
-        // تحديث القائمة
-        await loadInvoices();
-        
-        // إخفاء شريط الأدوات
-        const toolbar = document.getElementById('action-toolbar');
-        if(toolbar) toolbar.style.display = 'none';
-        currentSelectedId = null;
-        currentSelectedInvoice = null;
-        
-    } catch (error) {
-        console.error('Fehler bei Storno:', error);
-        alert('Fehler beim Stornieren: ' + error.message);
-    }
-}
 
-        // باقي الوظائف (Preview, Payment, Details) تبقى كما هي مع إضافة التحقق من وجود العناصر
-async function previewInvoice() {
-    if (!currentSelectedInvoice) {
-        alert('Keine Rechnung ausgewählt.');
-        return;
-    }
+            const invoice = currentSelectedInvoice;
+            const payments = allPayments.filter(p => p.invoiceId === invoice.id);
+            const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+            const restAmount = (invoice.gesamtBrutto || 0) - totalPaid;
 
-    const invoice = currentSelectedInvoice;
-    const payments = allPayments.filter(p => p.invoiceId === invoice.id);
-    const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const restAmount = (invoice.gesamtBrutto || 0) - totalPaid;
+            const invoiceDate = new Date(invoice.datum).toLocaleDateString('de-DE');
+            const customerName = getCustomerName(invoice);
+            const customerAddress = getCustomerAddress(invoice);
+            const firstVehicle = invoice.fahrzeuge && invoice.fahrzeuge[0] ? invoice.fahrzeuge[0] : null;
 
-    // تنسيق التاريخ
-    const invoiceDate = new Date(invoice.datum).toLocaleDateString('de-DE');
-    const customerName = getCustomerName(invoice);
-    const customerAddress = getCustomerAddress(invoice);
-    const firstVehicle = invoice.fahrzeuge && invoice.fahrzeuge[0] ? invoice.fahrzeuge[0] : null;
+            // حساب الضريبة
+            const brutto = invoice.gesamtBrutto || 0;
+            const netto = brutto / 1.19;
+            const mwst = brutto - netto;
 
-    // معلومات التاجر من settings
-    const dealer = dealerSettings || {};
-    const bankInfo = dealer.bankverbindung || {};
-    
-    const dealerName = dealer.name || 'Alo KFZ-HANDEL';
-    const dealerStreet = dealer.strasse || 'Lachenweg 2';
-    const dealerCity = dealer.plz && dealer.ort ? `${dealer.plz} ${dealer.ort}` : '56598 Rheinbrohl';
-    const dealerPhone = dealer.telefon || '017620950679';
-    const dealerEmail = dealer.email || 'alo-kfzhandel@outlook.de';
-    const dealerUstId = dealer.ustId || '2300258583';
-    const dealerSteuer = dealer.steuernummer || 'DE322513534';
-    const dealerEori = dealer.eori || 'De860083858046747';
-    
-    // معلومات البنك
-    const bankName = bankInfo.bank || 'Sparkasse Köln Bonn';
-    const bankIban = bankInfo.iban || 'DE59370501981936647906';
-    const bankBic = bankInfo.bic || 'COLSDE33';
-    
-    // حساب الضريبة (19%)
-    const brutto = invoice.gesamtBrutto || 0;
-    const netto = brutto / 1.19;
-    const mwst = brutto - netto;
-    
-    // النصوص المتغيرة من صفحة settings
-    const begruessungstext = defaultTexts.Begrüßungstexte || 'Vielen Dank für den gemeinsamen Geschäftsabschluss';
-    const garantieText = defaultTexts.Garantie || 'Das Kaufobjekt wird in dem Zustand übernommen wie besichtigt und probe gefahren. Zum Zeitpunkt des Verkaufs weist das Fahrzeug keine sichtbaren Unfallschäden auf. Eine Unfallfreiheit sowie das Fehlen von Nachlackierungen oder vorangegangenen Instandsetzungen können jedoch nicht zugesichert werden.';
-    const zusatzText = defaultTexts.Zusatz || 'Gewerblicher Verkauf';
-    
-    // عنوان التاجر المختصر للسطر العلوي (Absender)
-    const absenderLine = `${dealerName} · ${dealerStreet} · ${dealerCity}`;
-    
-    // إنشاء HTML للفاتورة - مطابق تماماً للتنسيق الأصلي
-    const invoiceHtml = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Rechnung ${invoice.nr}</title>
-            <style>
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-                body {
-                    background: #e0e0e0;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    min-height: 100vh;
-                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                    padding: 20px;
-                }
-                .a4-doc {
-                    background: white;
-                    width: 210mm;
-                    min-height: 297mm;
-                    padding: 15mm 20mm;
-                    margin: 0 auto;
-                    box-shadow: 0 5px 30px rgba(0,0,0,0.2);
-                    position: relative;
-                    box-sizing: border-box;
-                    font-size: 10pt;
-                    line-height: 1.4;
-                    color: #2d3436;
-                }
-                /* ===== رأس الفاتورة: لوجو على اليسار + معلومات التاجر على اليمين ===== */
-                .invoice-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    margin-bottom: 5mm;
-                }
-                .logo-area {
-                    width: 50mm;
-                    min-height: 20mm;
-                    background: #f0f0f0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    border-radius: 4px;
-                    font-size: 9pt;
-                    color: #999;
-                }
-                .logo-placeholder {
-                    text-align: center;
-                }
-                .dealer-info {
-                    text-align: right;
-                    font-size: 9pt;
-                }
-                .dealer-name {
-                    font-size: 14pt;
-                    font-weight: bold;
-                    color: #1a1a1a;
-                }
-                .dealer-address {
-                    margin: 2mm 0 1mm;
-                }
-                .dealer-contact {
-                    margin: 1mm 0;
-                }
-                .dealer-tax {
-                    font-size: 7pt;
-                    color: #666;
-                    margin-top: 1mm;
-                }
-                /* ===== سطر Absender فوق العميل ===== */
-                .absender-line {
-                    font-size: 8pt;
-                    color: #555;
-                    margin: 3mm 0 5mm 0;
-                    padding-bottom: 2mm;
-                    border-bottom: 1px dashed #ccc;
-                }
-                /* ===== معلومات العميل ===== */
-                .customer-section {
-                    margin: 4mm 0 6mm 0;
-                }
-                .customer-name {
-                    font-weight: bold;
-                    font-size: 11pt;
-                }
-                .customer-details {
-                    font-size: 9pt;
-                    margin-top: 2mm;
-                    line-height: 1.4;
-                }
-                .customer-id {
-                    font-size: 8pt;
-                    color: #666;
-                    margin-top: 1mm;
-                }
-                /* ===== عنوان الفاتورة ===== */
-                .invoice-title {
-                    margin: 6mm 0 3mm;
-                }
-                .invoice-title h2 {
-                    font-size: 14pt;
-                    font-weight: bold;
-                }
-                .invoice-meta {
-                    font-size: 9pt;
-                    color: #555;
-                    margin: 2mm 0;
-                }
-                .greeting-text {
-                    font-style: italic;
-                    margin: 3mm 0;
-                    padding: 2mm 0;
-                    font-size: 9pt;
-                }
-                /* ===== بيانات المركبة ===== */
-                .vehicle-section {
-                    margin: 5mm 0;
-                    padding: 4mm;
-                    background: #f5f5f5;
-                    border-radius: 4px;
-                }
-                .vehicle-name {
-                    font-weight: bold;
-                    font-size: 11pt;
-                }
-                .vehicle-details {
-                    font-size: 9pt;
-                    margin-top: 2mm;
-                    line-height: 1.4;
-                }
-                /* ===== المبلغ ===== */
-                .price-section {
-                    margin: 5mm 0;
-                    text-align: right;
-                }
-                .price-amount {
-                    font-size: 18pt;
-                    font-weight: bold;
-                    color: #2d3436;
-                }
-                /* ===== تفاصيل الضريبة ===== */
-                .tax-details {
-                    margin: 5mm 0;
-                    text-align: right;
-                    border-top: 1px solid #eee;
-                    padding-top: 3mm;
-                }
-                .tax-line {
-                    font-size: 9pt;
-                    margin: 1mm 0;
-                }
-                .total-line {
-                    font-size: 12pt;
-                    font-weight: bold;
-                    margin-top: 2mm;
-                    padding-top: 2mm;
-                    border-top: 1px solid #ddd;
-                }
-                /* ===== النصوص القانونية ===== */
-                .legal-text {
-                    margin: 6mm 0 4mm;
-                    font-size: 7pt;
-                    color: #555;
-                    line-height: 1.3;
-                }
-                .legal-text p {
-                    margin: 1.5mm 0;
-                }
-                /* ===== التذييل (بنك + اتصال) ===== */
-                .footer {
-                    margin-top: 8mm;
-                    padding-top: 4mm;
-                    border-top: 1px solid #ccc;
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 7pt;
-                    color: #555;
-                }
-                .footer-bank {
-                    flex: 1;
-                }
-                .footer-contact {
-                    flex: 1;
-                    text-align: right;
-                }
-                .footer-contact p, .footer-bank p {
-                    margin: 1mm 0;
-                }
-                .footer-bank strong, .footer-contact strong {
-                    font-size: 8pt;
-                }
-                @media print {
-                    body {
-                        background: white;
-                        padding: 0;
-                        margin: 0;
-                    }
-                    .a4-doc {
-                        box-shadow: none;
-                        margin: 0;
-                        padding: 15mm;
-                        width: 210mm;
-                        min-height: 0;
-                    }
-                    .no-print {
-                        display: none;
-                    }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="a4-doc">
-                <!-- ===== رأس الفاتورة: لوجو على اليسار + معلومات التاجر على اليمين ===== -->
-                <div class="invoice-header">
-                    <div class="logo-area">
-                        <div class="logo-placeholder">
-                            <i class="fas fa-car" style="font-size: 24px; color: #999;"></i><br>
-                            LOGO
+            // نصوص من Firebase
+            const begruessungText = invoice.texte?.begruessung || defaultTexts.Begrüßungstexte || 'Vielen Dank für den gemeinsamen Geschäftsabschluss';
+            const garantieText = invoice.texte?.garantie || defaultTexts.Garantie || '';
+            const zusatzText = invoice.texte?.zusatz || defaultTexts.Zusatz || '';
+
+            // Technische Daten sammeln
+            let technischeDaten = [];
+            if (firstVehicle?.ez) technischeDaten.push(`EZ: ${firstVehicle.ez}`);
+            if (firstVehicle?.km) technischeDaten.push(`km: ${firstVehicle.km}`);
+            if (firstVehicle?.ps) technischeDaten.push(`PS: ${firstVehicle.ps}`);
+            if (firstVehicle?.kw) technischeDaten.push(`KW: ${firstVehicle.kw}`);
+            if (firstVehicle?.ccm) technischeDaten.push(`ccm: ${firstVehicle.ccm}`);
+            if (firstVehicle?.kraftstoff) technischeDaten.push(`Kraftstoff: ${firstVehicle.kraftstoff}`);
+            if (firstVehicle?.farbe) technischeDaten.push(`Farbe: ${firstVehicle.farbe}`);
+
+            // HTML für die Vorschau - exakt wie in operation.html
+            const previewHtml = `
+                <div class="doc-content">
+                    <!-- Kopfbereich: Logo und Firmendaten -->
+                    <div class="doc-header">
+                        <div class="doc-logo">${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}</div>
+                        <div class="doc-company">
+                            <strong>${dealerSettings.h_firma || 'Auto Management'}</strong><br>
+                            ${dealerSettings.h_street || ''}<br>
+                            ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
+                            <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
+                            <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
+                            USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
+                            EORI: ${dealerSettings.h_eori || ''}
                         </div>
                     </div>
-                    <div class="dealer-info">
-                        <div class="dealer-name">${dealerName}</div>
-                        <div class="dealer-address">${dealerStreet} | ${dealerCity}</div>
-                        <div class="dealer-contact">📞 ${dealerPhone} | 📧 ${dealerEmail}</div>
-                        <div class="dealer-tax">USt-IdNr: ${dealerUstId} | Steuer-Nr: ${dealerSteuer} | EORI: ${dealerEori}</div>
+                    <!-- Absenderzeile für Fensterbrief -->
+                    <div class="doc-absender">
+                        ${dealerSettings.h_firma || 'Auto Management'} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
+                    </div>
+                    <!-- Kundendaten -->
+                    <div class="doc-customer">
+                        <p><strong>${escapeHtml(customerName)}</strong></p>
+                        <p>${customerAddress.strasse || ''} ${customerAddress.hausnummer || ''}</p>
+                        <p>${customerAddress.plz || ''} ${customerAddress.stadt || ''} ${customerAddress.land || 'Deutschland'}</p>
+                        ${customerAddress.ustId ? '<p>USt-IdNr: ' + customerAddress.ustId + '</p>' : ''}
+                        <p>Kunden-Nr: ${invoice.id ? invoice.id.slice(-6) : '--'}</p>
+                    </div>
+                    <!-- Titel -->
+                    <div class="doc-title">
+                        ${invoice.typ === 'storno' ? 'STORNO ' : ''}RECHNUNG Nr. ${invoice.nr}
+                    </div>
+                    <!-- Zeile für Datum und Lieferdatum -->
+                    <div class="doc-date-row">
+                        <span>Datum: ${invoiceDate}</span>
+                        <span>Lieferdatum: ${invoice.lieferdatum || invoiceDate}</span>
+                    </div>
+                    <!-- Begrüßungstext -->
+                    <div style="margin: 3mm 0; font-style: italic;">${begruessungText}</div>
+                    <!-- Fahrzeugdaten -->
+                    <div class="vehicle-description">
+                        <div class="vehicle-desc-left">
+                            <strong>${firstVehicle ? `${firstVehicle.marke || ''} ${firstVehicle.modell || ''}`.trim() : 'Fahrzeug'}</strong><br>
+                            VIN: ${firstVehicle?.vin || firstVehicle?.fin || '—'}<br>
+                            ${technischeDaten.join(' | ')}
+                        </div>
+                        <div class="vehicle-desc-right">
+                            <div class="price-area">${brutto.toFixed(2).replace('.', ',')} €</div>
+                        </div>
+                    </div>
+                    <!-- Summen -->
+                    <div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+                        <strong>Gesamt netto: ${netto.toFixed(2).replace('.', ',')} €</strong><br>
+                        + 19% MwSt: ${mwst.toFixed(2).replace('.', ',')} €<br>
+                        <strong>Gesamt brutto: ${brutto.toFixed(2).replace('.', ',')} €</strong>
+                        ${totalPaid > 0 ? `<br><span style="color:#27ae60;">Bereits gezahlt: ${totalPaid.toFixed(2).replace('.', ',')} €</span>` : ''}
+                        ${restAmount > 0 && invoice.status !== 'storniert' ? `<br><span style="color:#e74c3c;">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</span>` : ''}
+                    </div>
+                    <!-- Rechtlicher Hinweis für EU/Export -->
+                    ${invoice.typ === 'eu' ? `<div style="margin-top:3mm; font-style:italic; font-size:10pt;">EU Land: Ust-freie innergemeinschaftliche Lieferung i.S.§4 Nr. 1b in Verbindung mit §6a UStG (Art. 28c Abschn. A der 6. EG-Richtlinie)</div>` : ''}
+                    ${invoice.typ === 'export' ? `<div style="margin-top:3mm; font-style:italic; font-size:10pt;">In ein Drittland: USt-freie Ausfuhrlieferung i.S. § 4 Nr. 1a in Verbindung mit § 6 UStG</div>` : ''}
+                    <!-- Zusatztext -->
+                    ${zusatzText ? `<div style="margin-top:3mm;">${zusatzText}</div>` : ''}
+                    <!-- Garantietext -->
+                    ${garantieText ? `<div style="margin-top:3mm; font-size:9pt;">${garantieText}</div>` : ''}
+                </div>
+                <!-- Fußzeile -->
+                <div class="doc-footer">
+                    <div class="footer-left">
+                        <div><i class="fas fa-university"></i> <strong>Kontodaten</strong></div>
+                        <div>${dealerSettings.h_bank_name || ''}</div>
+                        <div>IBAN: ${dealerSettings.h_iban || ''}</div>
+                        <div>BIC: ${dealerSettings.h_bic || ''}</div>
+                    </div>
+                    <div class="footer-right">
+                        <div><i class="fas fa-address-card"></i> <strong>Kontakt</strong></div>
+                        <div><i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''}</div>
+                        <div><i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}</div>
                     </div>
                 </div>
-                
-                <!-- ===== سطر Absender فوق العميل ===== -->
-                <div class="absender-line">${absenderLine}</div>
-                
-                <!-- ===== معلومات العميل ===== -->
-                <div class="customer-section">
-                    <div class="customer-name">${escapeHtml(customerName)}</div>
-                    <div class="customer-details">
-                        ${customerAddress.strasse ? `${customerAddress.strasse} ${customerAddress.hausnummer}` : ''}<br>
-                        ${customerAddress.plz ? `${customerAddress.plz} ${customerAddress.stadt}` : ''} ${customerAddress.land !== 'Deutschland' ? customerAddress.land : ''}
-                    </div>
-                    <div class="customer-id">
-                        ${customerAddress.ustId ? `USt-IdNr: ${customerAddress.ustId} | ` : ''}Kunden-Nr: ${invoice.id ? invoice.id.slice(-6) : '---'}
-                    </div>
-                </div>
-                
-                <!-- ===== عنوان الفاتورة ===== -->
-                <div class="invoice-title">
-                    <h2>Rechnung Nr. ${invoice.nr}</h2>
-                    <div class="invoice-meta">Datum: ${invoiceDate} | Lieferdatum: ${invoiceDate}</div>
-                    <div class="greeting-text">${begruessungstext}</div>
-                </div>
-                
-                <!-- ===== بيانات المركبة ===== -->
-                <div class="vehicle-section">
-                    <div class="vehicle-name">${firstVehicle ? `${firstVehicle.marke || ''} ${firstVehicle.modell || ''}`.trim() : 'Fahrzeug'}</div>
-                    <div class="vehicle-details">
-                        VIN: ${firstVehicle?.vin || firstVehicle?.fin || '—'}<br>
-                        EZ: ${firstVehicle?.erstzulassung || '—'} | km: ${firstVehicle?.km ? firstVehicle.km.toLocaleString() : '—'} | PS: ${firstVehicle?.ps || '—'} | KW: ${firstVehicle?.kw || '—'} | ccm: ${firstVehicle?.ccm || '—'}
-                    </div>
-                </div>
-                
-                <!-- ===== المبلغ ===== -->
-                <div class="price-section">
-                    <div class="price-amount">${brutto.toFixed(2).replace('.', ',')} €</div>
-                </div>
-                
-                <!-- ===== تفاصيل الضريبة ===== -->
-                <div class="tax-details">
-                    <div class="tax-line">Gesamt netto: ${netto.toFixed(2).replace('.', ',')} €</div>
-                    <div class="tax-line">+ 19% MwSt: ${mwst.toFixed(2).replace('.', ',')} €</div>
-                    <div class="total-line">Gesamt brutto: ${brutto.toFixed(2).replace('.', ',')} €</div>
-                    ${totalPaid > 0 ? `<div class="tax-line" style="color:#27ae60;">Bereits gezahlt: ${totalPaid.toFixed(2).replace('.', ',')} €</div>` : ''}
-                    ${restAmount > 0 && invoice.status !== 'storniert' ? `<div class="tax-line" style="color:#e74c3c;">Offener Betrag: ${restAmount.toFixed(2).replace('.', ',')} €</div>` : ''}
-                </div>
-                
-                <!-- ===== النصوص القانونية ===== -->
-                <div class="legal-text">
-                    <p>Der Rechnungsbetrag ist sofort fällig. Die Ware (das Fahrzeug) bleibt bis zur vollständigen Bezahlung Eigentum des Verkäufers.</p>
-                    <p>${garantieText}</p>
-                    <p>${zusatzText}</p>
-                </div>
-                
-                <!-- ===== التذييل: معلومات البنك والاتصال ===== -->
-                <div class="footer">
-                    <div class="footer-bank">
-                        <strong>Kontodaten</strong><br>
-                        ${bankName}<br>
-                        IBAN: ${bankIban}<br>
-                        BIC: ${bankBic}
-                    </div>
-                    <div class="footer-contact">
-                        <strong>Kontakt</strong><br>
-                        📞 ${dealerPhone}<br>
-                        📧 ${dealerEmail}
-                    </div>
-                </div>
-            </div>
+            `;
+
+            const previewDiv = document.getElementById('previewDocument');
+            if (previewDiv) previewDiv.innerHTML = previewHtml;
             
-            <!-- زر الطباعة -->
-            <div class="no-print" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
-                <button onclick="window.print()" style="background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-                    🖨️ Drucken / PDF speichern
-                </button>
-            </div>
-        </body>
-        </html>
-    `;
+            const overlay = document.getElementById('previewOverlay');
+            if (overlay) overlay.style.display = 'flex';
+        }
 
-    const previewWindow = window.open('', '_blank');
-    previewWindow.document.write(invoiceHtml);
-    previewWindow.document.close();
-}
-// دالة مساعدة للحصول على نص نوع الفاتورة
-function getTypeLabel(typ) {
-    switch(typ) {
-        case 'rechnung': return 'Standardrechnung';
-        case 'eu': return 'EU-Export Rechnung';
-        case 'export': return 'Export Rechnung';
-        case 'storno': return 'Stornorechnung';
-        default: return 'Rechnung';
-    }
-}
+        function printPreviewDocument() {
+            window.print();
+        }
 
+        function closePreviewOverlay() {
+            const overlay = document.getElementById('previewOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        // ======================== STORNO ========================
+        async function stornoInvoice() {
+            if (!currentSelectedInvoice) {
+                alert('Keine Rechnung ausgewählt.');
+                return;
+            }
+            
+            if (currentSelectedInvoice.status === 'storniert') {
+                alert('Diese Rechnung wurde bereits storniert.');
+                return;
+            }
+            
+            if (currentSelectedInvoice.typ === 'storno') {
+                alert('Eine Stornorechnung kann nicht storniert werden.');
+                return;
+            }
+            
+            const confirmStorno = confirm(`Möchten Sie die Rechnung ${currentSelectedInvoice.nr} wirklich stornieren?`);
+            if (!confirmStorno) return;
+            
+            try {
+                await db.ref(`rechnungen/${currentSelectedId}`).update({
+                    status: 'storniert',
+                    storniertAm: new Date().toISOString()
+                });
+                
+                const stornoRechnung = {
+                    nr: `${currentSelectedInvoice.nr}-STORNO`,
+                    typ: 'storno',
+                    originalRechnungId: currentSelectedId,
+                    gesamtBrutto: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+                    status: 'bezahlt',
+                    stornoDatum: new Date().toISOString(),
+                    datum: new Date().toISOString(),
+                    kunde: currentSelectedInvoice.kunde || {},
+                    kundeName: currentSelectedInvoice.kundeName || getCustomerName(currentSelectedInvoice),
+                    fahrzeuge: currentSelectedInvoice.fahrzeuge || []
+                };
+                
+                await db.ref('rechnungen').push(stornoRechnung);
+                
+                await db.ref('kasse/transaktionen').push({
+                    beschreibung: `Storno Rechnung ${currentSelectedInvoice.nr}`,
+                    betrag: -Math.abs(currentSelectedInvoice.gesamtBrutto || 0),
+                    methode: 'storno',
+                    datum: new Date().toISOString().split('T')[0],
+                    typ: 'ausgabe',
+                    rechnungId: currentSelectedId
+                });
+                
+                alert(`Rechnung ${currentSelectedInvoice.nr} wurde erfolgreich storniert.`);
+                await loadInvoices();
+                
+                const toolbar = document.getElementById('action-toolbar');
+                if(toolbar) toolbar.style.display = 'none';
+                currentSelectedId = null;
+                currentSelectedInvoice = null;
+                
+            } catch (error) {
+                console.error('Fehler bei Storno:', error);
+                alert('Fehler beim Stornieren: ' + error.message);
+            }
+        }
+
+        // ======================== ZAHLUNG ========================
         function openPaymentModal() {
             if (!currentSelectedInvoice) return;
             const target = document.getElementById('payment-target');
@@ -1551,6 +1306,7 @@ function getTypeLabel(typ) {
             if(overlay) overlay.style.display = 'none';
         }
 
+        // ======================== DETAIL MODAL ========================
         async function showInvoiceDetails(invoiceId) {
             const invoice = allInvoices.find(inv => inv.id === invoiceId);
             if (!invoice) return;
