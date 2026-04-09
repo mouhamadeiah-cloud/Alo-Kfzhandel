@@ -855,210 +855,207 @@
             generateDocumentPreview();
         }
 
-        function generateDocumentPreview() {
-            if (docType === 'probefahrt') {
-                generateProbefahrtPreview();
-                return;
-            }
-            const preview = document.getElementById('docPreview');
-            let currentDate = customDocumentDate ? customDocumentDate : new Date().toLocaleDateString('de-DE');
-            const tempNr = `ENTWURF-${Math.floor(Math.random()*1000)}`;
+       function generateDocumentPreview() {
+    if (docType === 'probefahrt') {
+        generateProbefahrtPreview();
+        return;
+    }
+    const preview = document.getElementById('docPreview');
+    let currentDate = customDocumentDate ? customDocumentDate : new Date().toLocaleDateString('de-DE');
+    const tempNr = `ENTWURF-${Math.floor(Math.random()*1000)}`;
 
-            let html = `
-                <div class="doc-content">
-                <!-- Kopfbereich: Logo und Firmendaten -->
-                <div class="doc-header">
-                    <div class="doc-logo">${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}</div>
-                    <div class="doc-company">
-                        <strong>${dealerSettings.h_firma || ''}</strong><br>
-                        ${dealerSettings.h_street || ''}<br>
-                        ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
-                        <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
-                        <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
-                        USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
-                        EORI: ${dealerSettings.h_eori || ''}
-                    </div>
-                </div>
-                <!-- Absenderzeile für Fensterbrief -->
-                <div class="doc-absender">
-                    ${dealerSettings.h_firma || ''} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
-                </div>
-                <!-- Kundendaten -->
-                <div class="doc-customer">
-                    <p><strong>${currentCustomer.k_vorname} ${currentCustomer.k_nachname}</strong></p>
-                    <p>${currentCustomer.k_street || ''} ${currentCustomer.k_hausnummer || ''}</p>
-                    <p>${currentCustomer.k_plz || ''} ${currentCustomer.k_city || ''} ${currentCustomer.k_country || 'Deutschland'}</p>
-                    ${currentCustomer.k_tax_id ? '<p>USt-IdNr: ' + currentCustomer.k_tax_id + '</p>' : ''}
-                    <p>Kunden-Nr: ${currentCustomer.kundenId || currentCustomer.id?.slice(-6) || '--'}</p>
-                </div>
-                <!-- Titel -->
-                <div class="doc-title">
-                    ${getDocumentTitle(docType)} Nr. ${tempNr}
-                </div>
-                <!-- Zeile für Datum und Lieferdatum - Datum jetzt bearbeitbar -->
-                <div class="doc-date-row">
-                    <span>Datum: 
-                        <input type="text" id="documentDateInput" value="${currentDate}" style="width: 35mm; border: 1px solid #ccc; border-radius: 4px; padding: 2px 4px;" onchange="updateDocumentDate(this.value)">
-                        <button onclick="resetDocumentDate()" style="background: none; border: none; cursor: pointer; margin-left: 5px;" title="Auf heute zurücksetzen">
-                            <i class="fas fa-calendar-day" style="color: var(--accent-blue);"></i>
-                        </button>
-                    </span>
-                    <span>Lieferdatum: <input type="text" id="lieferdatumInput" value="${currentDate}" style="width: 30mm;" onchange="updateLieferdatum(this.value)"></span>
-                </div>
-            `;
+    let html = `
+        <div class="doc-content">
+        <!-- Kopfbereich: Logo und Firmendaten -->
+        <div class="doc-header">
+            <div class="doc-logo">${dealerSettings.h_icon ? '<img src="'+dealerSettings.h_icon+'" style="max-height:20mm; max-width:50mm;">' : '<i class="fas fa-car" style="font-size:40px;color:#ccc;"></i>'}</div>
+            <div class="doc-company">
+                <strong>${dealerSettings.h_firma || ''}</strong><br>
+                ${dealerSettings.h_street || ''}<br>
+                ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}<br>
+                <i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''} | <i class="fas fa-fax"></i> ${dealerSettings.h_fax || ''}<br>
+                <i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}<br>
+                USt-IdNr: ${dealerSettings.h_ust || ''} | Steuer-Nr: ${dealerSettings.h_tax || ''}<br>
+                EORI: ${dealerSettings.h_eori || ''}
+            </div>
+        </div>
+        <!-- Absenderzeile für Fensterbrief -->
+        <div class="doc-absender">
+            ${dealerSettings.h_firma || ''} – ${dealerSettings.h_street || ''} – ${dealerSettings.h_plz || ''} ${dealerSettings.h_city || ''}
+        </div>
+        <!-- Kundendaten -->
+        <div class="doc-customer">
+            <p><strong>${currentCustomer.k_vorname} ${currentCustomer.k_nachname}</strong></p>
+            <p>${currentCustomer.k_street || ''} ${currentCustomer.k_hausnummer || ''}</p>
+            <p>${currentCustomer.k_plz || ''} ${currentCustomer.k_city || ''} ${currentCustomer.k_country || 'Deutschland'}</p>
+            ${currentCustomer.k_tax_id ? '<p>USt-IdNr: ' + currentCustomer.k_tax_id + '</p>' : ''}
+            <p>Kunden-Nr: ${currentCustomer.kundenId || currentCustomer.id?.slice(-6) || '--'}</p>
+        </div>
+        <!-- Titel -->
+        <div class="doc-title">
+            ${getDocumentTitle(docType)} Nr. ${tempNr}
+        </div>
+        <!-- Zeile für Datum und Lieferdatum - Datum jetzt bearbeitbar OHNE ICON -->
+        <div class="doc-date-row">
+            <span>Datum: 
+                <input type="text" id="documentDateInput" value="${currentDate}" style="width: 35mm; border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; font-size: 10pt;" onchange="updateDocumentDate(this.value)">
+            </span>
+            <span>Lieferdatum: <input type="text" id="lieferdatumInput" value="${currentDate}" style="width: 30mm; border: 1px solid #ccc; border-radius: 4px; padding: 4px 6px; font-size: 10pt;" onchange="updateLieferdatum(this.value)"></span>
+        </div>
+    `;
 
-            // Begrüßungstext mit Dropdown
-            html += `<div class="text-section">`;
-            if (allTexts.Begrüßungstexte.length) {
-                html += `<div class="section-header">`;
-                html += `<span class="text-content">${selectedTexts.Begrüßungstexte || ''}</span>`;
-                html += `<span class="text-dropdown no-print"><select onchange="updateText('Begrüßungstexte', this.value)">`;
-                allTexts.Begrüßungstexte.forEach(t => {
-                    html += `<option value="${t.content}" ${t.content === selectedTexts.Begrüßungstexte ? 'selected' : ''}>${t.title}</option>`;
-                });
-                html += `</select></span>`;
-                html += `</div>`;
+    // Begrüßungstext mit Dropdown
+    html += `<div class="text-section">`;
+    if (allTexts.Begrüßungstexte.length) {
+        html += `<div class="section-header">`;
+        html += `<span class="text-content">${selectedTexts.Begrüßungstexte || ''}</span>`;
+        html += `<span class="text-dropdown no-print"><select onchange="updateText('Begrüßungstexte', this.value)">`;
+        allTexts.Begrüßungstexte.forEach(t => {
+            html += `<option value="${t.content}" ${t.content === selectedTexts.Begrüßungstexte ? 'selected' : ''}>${t.title}</option>`;
+        });
+        html += `</select></span>`;
+        html += `</div>`;
+    } else {
+        html += `<div>${selectedTexts.Begrüßungstexte || 'Sehr geehrte Damen und Herren,'}</div>`;
+    }
+    html += `</div>`;
+
+    // Fahrzeuge
+    currentVehicles.forEach(v => {
+        const preis = v.verkaufspreis || 0;
+        let anzeigePreis = preis;
+
+        if (docType === 'eu' || docType === 'export') {
+            if (v.auto_tax === '19') {
+                anzeigePreis = preis / 1.19;
             } else {
-                html += `<div>${selectedTexts.Begrüßungstexte || 'Sehr geehrte Damen und Herren,'}</div>`;
+                anzeigePreis = preis;
             }
-            html += `</div>`;
-
-            // Fahrzeuge
-            currentVehicles.forEach(v => {
-                const preis = v.verkaufspreis || 0;
-                let anzeigePreis = preis;
-
-                if (docType === 'eu' || docType === 'export') {
-                    if (v.auto_tax === '19') {
-                        anzeigePreis = preis / 1.19;
-                    } else {
-                        anzeigePreis = preis;
-                    }
-                }
-
-                let technischeDaten = [];
-                if (v.auto_ez) technischeDaten.push(`EZ: ${v.auto_ez}`);
-                if (v.auto_km) technischeDaten.push(`km: ${v.auto_km}`);
-                if (v.auto_ps) technischeDaten.push(`PS: ${v.auto_ps}`);
-                if (v.auto_kw) technischeDaten.push(`KW: ${v.auto_kw}`);
-                if (v.auto_ccm) technischeDaten.push(`ccm: ${v.auto_ccm}`);
-                if (v.auto_kraftstoff) technischeDaten.push(`Kraftstoff: ${v.auto_kraftstoff}`);
-                if (v.auto_farbe) technischeDaten.push(`Farbe: ${v.auto_farbe}`);
-
-                html += `
-                    <div class="vehicle-description">
-                        <div class="vehicle-desc-left">
-                            <strong>${v.auto_marke} ${v.auto_model}</strong><br>
-                            VIN: ${v.auto_vin}<br>
-                            ${technischeDaten.join(' | ')}
-                        </div>
-                        <div class="vehicle-desc-right">
-                            <div class="price-area">${anzeigePreis.toFixed(2)} €</div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            // Summenberechnung
-            let totalNet = 0, totalMwSt = 0, totalGross = 0;
-            currentVehicles.forEach(v => {
-                const preis = v.verkaufspreis || 0;
-                if (docType === 'eu' || docType === 'export') {
-                    if (v.auto_tax === '19') {
-                        totalNet += preis / 1.19;
-                    } else {
-                        totalNet += preis;
-                    }
-                } else {
-                    if (v.auto_tax === '19') {
-                        totalNet += preis / 1.19;
-                        totalMwSt += preis - (preis / 1.19);
-                    } else {
-                        totalNet += preis;
-                    }
-                    totalGross += preis;
-                }
-            });
-
-            if (docType === 'rechnung') {
-                html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
-                    <strong>Gesamt netto: ${totalNet.toFixed(2)} €</strong><br>
-                    + MwSt: ${totalMwSt.toFixed(2)} €<br>
-                    <strong>Gesamt brutto: ${totalGross.toFixed(2)} €</strong>
-                </div>`;
-            } else {
-                html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
-                    <strong>Gesamtbetrag (netto): ${totalNet.toFixed(2)} €</strong>
-                </div>`;
-            }
-
-            // Rechtlicher Hinweis
-            html += `<div style="margin-top:5mm; font-style:italic; font-size:10pt;">`;
-            if (docType === 'eu') {
-                html += `EU Land: Ust-freie innergemeinschaftliche Lieferung i.S.§4 Nr. 1b in Verbindung mit §6a UStG (Art. 28c Abschn. A der 6. EG-Richtlinie)`;
-            } else if (docType === 'export') {
-                html += `In ein Drittland: USt-freie Ausfuhrlieferung i.S. § 4 Nr. 1a in Verbindung mit § 6 UStG`;
-            } else if (docType === 'rechnung' && currentVehicles.some(v => v.auto_tax === '25a')) {
-                html += `Für Vorsteuerabzugsberechtigte kein Umsatzsteuerausweis möglich, §25 a UStG.`;
-            }
-            html += `</div>`;
-
-            // Zusätzliche Texte
-            html += `<div class="text-section">`;
-            if (allTexts.Zusatz.length) {
-                html += `<div class="section-header">`;
-                html += `<span class="text-content">${selectedTexts.Zusatz || ''}</span>`;
-                html += `<span class="text-dropdown no-print"><select onchange="updateText('Zusatz', this.value)">`;
-                allTexts.Zusatz.forEach(t => {
-                    html += `<option value="${t.content}" ${t.content === selectedTexts.Zusatz ? 'selected' : ''}>${t.title}</option>`;
-                });
-                html += `</select></span>`;
-                html += `</div>`;
-            } else {
-                html += `<div>${selectedTexts.Zusatz || ''}</div>`;
-            }
-            html += `</div>`;
-
-            // Garantietext (nur wenn nicht leer)
-            if (selectedTexts.Garantie && selectedTexts.Garantie.trim() !== '') {
-                html += `<div class="text-section garantie-section" style="margin-top:3mm;">`;
-                if (allTexts.Garantie.length) {
-                    html += `<div class="section-header">`;
-                    html += `<span class="text-content">${selectedTexts.Garantie}</span>`;
-                    html += `<span class="text-dropdown no-print"><select onchange="updateText('Garantie', this.value)">`;
-                    allTexts.Garantie.forEach(t => {
-                        html += `<option value="${t.content}" ${t.content === selectedTexts.Garantie ? 'selected' : ''}>${t.title}</option>`;
-                    });
-                    html += `</select></span>`;
-                    html += `</div>`;
-                } else {
-                    html += `<div>${selectedTexts.Garantie}</div>`;
-                }
-                html += `</div>`;
-            }
-
-            html += `</div>`; // Ende doc-content
-
-            // Fußzeile
-            html += `<div class="doc-footer">
-                <div class="footer-left">
-                    <div><i class="fas fa-university"></i> <strong>Kontodaten</strong></div>
-                    <div>${dealerSettings.h_bank_name || ''}</div>
-                    <div>IBAN: ${dealerSettings.h_iban || ''}</div>
-                    <div>BIC: ${dealerSettings.h_bic || ''}</div>
-                </div>
-                <div class="footer-right">
-                    <div><i class="fas fa-address-card"></i> <strong>Kontakt</strong></div>
-                    <div><i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''}</div>
-                    <div><i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}</div>
-                </div>
-            </div>`;
-
-            preview.innerHTML = html;
-
-            const lieferdatumInput = document.getElementById('lieferdatumInput');
-            if (lieferdatumInput) lieferdatumInput.value = currentDate;
         }
+
+        let technischeDaten = [];
+        if (v.auto_ez) technischeDaten.push(`EZ: ${v.auto_ez}`);
+        if (v.auto_km) technischeDaten.push(`km: ${v.auto_km}`);
+        if (v.auto_ps) technischeDaten.push(`PS: ${v.auto_ps}`);
+        if (v.auto_kw) technischeDaten.push(`KW: ${v.auto_kw}`);
+        if (v.auto_ccm) technischeDaten.push(`ccm: ${v.auto_ccm}`);
+        if (v.auto_kraftstoff) technischeDaten.push(`Kraftstoff: ${v.auto_kraftstoff}`);
+        if (v.auto_farbe) technischeDaten.push(`Farbe: ${v.auto_farbe}`);
+
+        html += `
+            <div class="vehicle-description">
+                <div class="vehicle-desc-left">
+                    <strong>${v.auto_marke} ${v.auto_model}</strong><br>
+                    VIN: ${v.auto_vin}<br>
+                    ${technischeDaten.join(' | ')}
+                </div>
+                <div class="vehicle-desc-right">
+                    <div class="price-area">${anzeigePreis.toFixed(2)} €</div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Summenberechnung
+    let totalNet = 0, totalMwSt = 0, totalGross = 0;
+    currentVehicles.forEach(v => {
+        const preis = v.verkaufspreis || 0;
+        if (docType === 'eu' || docType === 'export') {
+            if (v.auto_tax === '19') {
+                totalNet += preis / 1.19;
+            } else {
+                totalNet += preis;
+            }
+        } else {
+            if (v.auto_tax === '19') {
+                totalNet += preis / 1.19;
+                totalMwSt += preis - (preis / 1.19);
+            } else {
+                totalNet += preis;
+            }
+            totalGross += preis;
+        }
+    });
+
+    if (docType === 'rechnung') {
+        html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+            <strong>Gesamt netto: ${totalNet.toFixed(2)} €</strong><br>
+            + MwSt: ${totalMwSt.toFixed(2)} €<br>
+            <strong>Gesamt brutto: ${totalGross.toFixed(2)} €</strong>
+        </div>`;
+    } else {
+        html += `<div style="text-align:right; margin-top:5mm; border-top:1px solid #ccc; padding-top:2mm;">
+            <strong>Gesamtbetrag (netto): ${totalNet.toFixed(2)} €</strong>
+        </div>`;
+    }
+
+    // Rechtlicher Hinweis
+    html += `<div style="margin-top:5mm; font-style:italic; font-size:10pt;">`;
+    if (docType === 'eu') {
+        html += `EU Land: Ust-freie innergemeinschaftliche Lieferung i.S.§4 Nr. 1b in Verbindung mit §6a UStG (Art. 28c Abschn. A der 6. EG-Richtlinie)`;
+    } else if (docType === 'export') {
+        html += `In ein Drittland: USt-freie Ausfuhrlieferung i.S. § 4 Nr. 1a in Verbindung mit § 6 UStG`;
+    } else if (docType === 'rechnung' && currentVehicles.some(v => v.auto_tax === '25a')) {
+        html += `Für Vorsteuerabzugsberechtigte kein Umsatzsteuerausweis möglich, §25 a UStG.`;
+    }
+    html += `</div>`;
+
+    // Zusätzliche Texte
+    html += `<div class="text-section">`;
+    if (allTexts.Zusatz.length) {
+        html += `<div class="section-header">`;
+        html += `<span class="text-content">${selectedTexts.Zusatz || ''}</span>`;
+        html += `<span class="text-dropdown no-print"><select onchange="updateText('Zusatz', this.value)">`;
+        allTexts.Zusatz.forEach(t => {
+            html += `<option value="${t.content}" ${t.content === selectedTexts.Zusatz ? 'selected' : ''}>${t.title}</option>`;
+        });
+        html += `</select></span>`;
+        html += `</div>`;
+    } else {
+        html += `<div>${selectedTexts.Zusatz || ''}</div>`;
+    }
+    html += `</div>`;
+
+    // Garantietext (nur wenn nicht leer)
+    if (selectedTexts.Garantie && selectedTexts.Garantie.trim() !== '') {
+        html += `<div class="text-section garantie-section" style="margin-top:3mm;">`;
+        if (allTexts.Garantie.length) {
+            html += `<div class="section-header">`;
+            html += `<span class="text-content">${selectedTexts.Garantie}</span>`;
+            html += `<span class="text-dropdown no-print"><select onchange="updateText('Garantie', this.value)">`;
+            allTexts.Garantie.forEach(t => {
+                html += `<option value="${t.content}" ${t.content === selectedTexts.Garantie ? 'selected' : ''}>${t.title}</option>`;
+            });
+            html += `</select></span>`;
+            html += `</div>`;
+        } else {
+            html += `<div>${selectedTexts.Garantie}</div>`;
+        }
+        html += `</div>`;
+    }
+
+    html += `</div>`; // Ende doc-content
+
+    // Fußzeile
+    html += `<div class="doc-footer">
+        <div class="footer-left">
+            <div><i class="fas fa-university"></i> <strong>Kontodaten</strong></div>
+            <div>${dealerSettings.h_bank_name || ''}</div>
+            <div>IBAN: ${dealerSettings.h_iban || ''}</div>
+            <div>BIC: ${dealerSettings.h_bic || ''}</div>
+        </div>
+        <div class="footer-right">
+            <div><i class="fas fa-address-card"></i> <strong>Kontakt</strong></div>
+            <div><i class="fas fa-phone"></i> ${dealerSettings.h_tel || ''}</div>
+            <div><i class="fas fa-envelope"></i> ${dealerSettings.h_email || ''}</div>
+        </div>
+    </div>`;
+
+    preview.innerHTML = html;
+
+    const lieferdatumInput = document.getElementById('lieferdatumInput');
+    if (lieferdatumInput) lieferdatumInput.value = currentDate;
+}
 
         function generateProbefahrtPreview() {
             const preview = document.getElementById('docPreview');
