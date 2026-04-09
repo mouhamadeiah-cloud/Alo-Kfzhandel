@@ -494,6 +494,7 @@
         let allTexts = { Begrüßungstexte: [], Garantie: [], Zusatz: [] };
         let selectedTexts = { Begrüßungstexte: '', Garantie: '', Zusatz: '' };
         let lastSavedRechnungsNr = null;
+        let customDocumentDate = null;  // Variable für das bearbeitbare Datum
 
         // Session State
         function saveState() {
@@ -509,8 +510,6 @@
                 if (saved) {
                     const state = JSON.parse(saved);
                     if (state.currentCustomer) {
-                        // Beim Laden aus Session müssen wir die Daten in das erwartete Format bringen
-                        // (die selectCustomer Funktion erwartet ein Objekt mit den richtigen Feldern)
                         selectCustomer(state.currentCustomer, true);
                     }
                     if (state.currentVehicles) {
@@ -532,7 +531,6 @@
                     const snap = await db.ref(`kunden/${customerId}`).once('value');
                     const data = snap.val();
                     if (data) {
-                        // Daten in das von selectCustomer erwartete Format bringen (mit fallback)
                         selectCustomer({ id: customerId, ...data }, false);
                     }
                 } catch (e) {
@@ -552,7 +550,6 @@
                 }
             }
 
-            // Nach dem Laden der Daten aus der URL speichern wir den Zustand, damit er auch nach einem Reload erhalten bleibt
             if (customerId || vehicleId) {
                 saveState();
             }
@@ -567,7 +564,6 @@
             const results = [];
             for (let id in data) {
                 const c = data[id];
-                // Unterstützung für beide Namensformate
                 const name = `${c.k_vorname || c.kunde_vorname || ''} ${c.k_nachname || c.kunde_nachname || ''}`.toLowerCase();
                 const phone = c.k_phone || c.kunde_telefon || '';
                 if (name.includes(input.toLowerCase()) || phone.includes(input)) {
@@ -595,7 +591,6 @@
         }
 
         function selectCustomer(c, isFromSession = false) {
-            // Normalisiere die Daten auf das interne Format (k_*)
             currentCustomer = {
                 id: c.id,
                 k_vorname: c.k_vorname || c.kunde_vorname || '',
@@ -655,7 +650,6 @@
             const results = [];
             for (let id in data) {
                 const v = data[id];
-                // Nur verfügbare oder reservierte Fahrzeuge anzeigen
                 const status = (v.auto_status || v.status || 'verfügbar').toLowerCase();
                 if (status !== 'verfügbar' && status !== 'reserviert') continue;
                 const vin = (v.auto_vin || v.vin || '').toLowerCase();
@@ -687,7 +681,6 @@
         }
 
         function addVehicle(v) {
-            // Normalisieren auf auto_* Felder
             const normalized = {
                 id: v.id,
                 auto_marke: v.auto_marke || v.marke || '',
@@ -784,12 +777,73 @@
             if (!dealerSettings.kennzeichen) dealerSettings.kennzeichen = 'XX-XX-XXX';
         }
 
+        // ========== NEUE FUNKTIONEN FÜR DATUM ==========
+        function updateDocumentDate(dateValue) {
+            const datePattern = /^\d{2}\.\d{2}\.\d{4}$/;
+            if (datePattern.test(dateValue)) {
+                customDocumentDate = dateValue;
+            } else {
+                const parts = dateValue.split(/[\.\-/]/);
+                if (parts.length === 3) {
+                    let day, month, year;
+                    if (parts[0].length === 4) {
+                        year = parts[0];
+                        month = parts[1];
+                        day = parts[2];
+                    } else {
+                        day = parts[0];
+                        month = parts[1];
+                        year = parts[2];
+                    }
+                    const formatted = `${day.padStart(2,'0')}.${month.padStart(2,'0')}.${year}`;
+                    if (/^\d{2}\.\d{2}\.\d{4}$/.test(formatted)) {
+                        customDocumentDate = formatted;
+                        const dateInput = document.getElementById('documentDateInput');
+                        if (dateInput) dateInput.value = formatted;
+                        return;
+                    }
+                }
+                alert('Bitte geben Sie das Datum im Format TT.MM.JJJJ ein (z.B. 15.04.2026)');
+                if (customDocumentDate) {
+                    const dateInput = document.getElementById('documentDateInput');
+                    if (dateInput) dateInput.value = customDocumentDate;
+                } else {
+                    const dateInput = document.getElementById('documentDateInput');
+                    if (dateInput) dateInput.value = new Date().toLocaleDateString('de-DE');
+                }
+            }
+        }
+
+        function resetDocumentDate() {
+            const today = new Date().toLocaleDateString('de-DE');
+            customDocumentDate = null;
+            const dateInput = document.getElementById('documentDateInput');
+            if (dateInput) dateInput.value = today;
+            generateDocumentPreview();
+        }
+
+        function convertToISO(dateString) {
+            const parts = dateString.split('.');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                const dateObj = new Date(year, month, day);
+                if (dateObj.getFullYear() === year && dateObj.getMonth() === month && dateObj.getDate() === day) {
+                    return dateObj.toISOString();
+                }
+            }
+            return new Date().toISOString();
+        }
+        // ================================================
+
         // ---------- DOKUMENTVORSCHAU ----------
         async function openDocument(type) {
             if (!currentCustomer) return alert('Bitte wählen Sie zuerst einen Kunden aus.');
             if (type !== 'probefahrt' && currentVehicles.length === 0) return alert('Bitte wählen Sie mindestens ein Fahrzeug aus.');
             if (type === 'probefahrt' && currentVehicles.length === 0) return alert('Bitte wählen Sie ein Fahrzeug für die Probefahrt aus.');
             docType = type;
+            customDocumentDate = null; // Datum zurücksetzen beim Öffnen eines neuen Dokuments
             await loadSettings();
             await loadAllTexts();
             document.getElementById('docOverlay').style.display = 'flex';
@@ -807,7 +861,7 @@
                 return;
             }
             const preview = document.getElementById('docPreview');
-            const heute = new Date().toLocaleDateString('de-DE');
+            let currentDate = customDocumentDate ? customDocumentDate : new Date().toLocaleDateString('de-DE');
             const tempNr = `ENTWURF-${Math.floor(Math.random()*1000)}`;
 
             let html = `
@@ -841,10 +895,15 @@
                 <div class="doc-title">
                     ${getDocumentTitle(docType)} Nr. ${tempNr}
                 </div>
-                <!-- Zeile für Datum und Lieferdatum -->
+                <!-- Zeile für Datum und Lieferdatum - Datum jetzt bearbeitbar -->
                 <div class="doc-date-row">
-                    <span>Datum: ${heute}</span>
-                    <span>Lieferdatum: <input type="text" id="lieferdatumInput" value="${heute}" style="width: 30mm;" onchange="updateLieferdatum(this.value)"></span>
+                    <span>Datum: 
+                        <input type="text" id="documentDateInput" value="${currentDate}" style="width: 35mm; border: 1px solid #ccc; border-radius: 4px; padding: 2px 4px;" onchange="updateDocumentDate(this.value)">
+                        <button onclick="resetDocumentDate()" style="background: none; border: none; cursor: pointer; margin-left: 5px;" title="Auf heute zurücksetzen">
+                            <i class="fas fa-calendar-day" style="color: var(--accent-blue);"></i>
+                        </button>
+                    </span>
+                    <span>Lieferdatum: <input type="text" id="lieferdatumInput" value="${currentDate}" style="width: 30mm;" onchange="updateLieferdatum(this.value)"></span>
                 </div>
             `;
 
@@ -877,7 +936,6 @@
                     }
                 }
 
-                // Technische Daten sammeln
                 let technischeDaten = [];
                 if (v.auto_ez) technischeDaten.push(`EZ: ${v.auto_ez}`);
                 if (v.auto_km) technischeDaten.push(`km: ${v.auto_km}`);
@@ -999,7 +1057,7 @@
             preview.innerHTML = html;
 
             const lieferdatumInput = document.getElementById('lieferdatumInput');
-            if (lieferdatumInput) lieferdatumInput.value = heute;
+            if (lieferdatumInput) lieferdatumInput.value = currentDate;
         }
 
         function generateProbefahrtPreview() {
@@ -1097,6 +1155,11 @@
             return titles[type] || 'Dokument';
         }
 
+        function updateLieferdatum(value) {
+            // Funktion für Lieferdatum (optional)
+            console.log('Lieferdatum aktualisiert:', value);
+        }
+
         // ---------- DRUCKFUNKTIONEN ----------
         function printDocument() {
             window.print();
@@ -1143,10 +1206,13 @@
             const rechnungsNr = `RE-${year}-${count.toString().padStart(4, '0')}`;
             const lieferdatumInput = document.getElementById('lieferdatumInput');
             const lieferdatum = lieferdatumInput ? lieferdatumInput.value : new Date().toLocaleDateString('de-DE');
+            
+            // Verwende customDocumentDate falls vorhanden, sonst aktuelles Datum
+            const dokumentDatum = customDocumentDate ? convertToISO(customDocumentDate) : new Date().toISOString();
 
             const rechnungData = {
                 nr: rechnungsNr,
-                datum: new Date().toISOString(),
+                datum: dokumentDatum,
                 lieferdatum: lieferdatum,
                 typ: docType,
                 status: 'offen',
@@ -1206,6 +1272,7 @@
                 closeDocumentOverlay();
                 currentVehicles = [];
                 currentCustomer = null;
+                customDocumentDate = null;
                 saveState();
             } catch (e) {
                 alert('Fehler: ' + e.message);
@@ -1252,8 +1319,8 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await loadSettings();
             await loadAllTexts();
-            loadState();                     // zuerst Session wiederherstellen
-            await loadFromURL();              // dann URL-Parameter laden (überschreibt ggf. Session)
+            loadState();
+            await loadFromURL();
         });
     </script>
 </body>
